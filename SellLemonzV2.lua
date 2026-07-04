@@ -1304,7 +1304,7 @@ loop(3, function()
     end
 end)
 
--- Auto Eat Fruit — cycles all known fruit signatures until exhausted
+-- Auto Eat Fruit — passes fruit data table exactly as Cobalt generated
 loop(4, function()
     if not S.eatfruit then return end
     local myT = getMyTycoon()
@@ -1313,40 +1313,18 @@ loop(4, function()
     local eatRemote = myT.Remotes:FindFirstChild("EatFruit")
     if not eatRemote then return end
 
-    -- Each fruit type has a unique stat signature from Cobalt captures.
-    -- The server matches these stats to the fruit in your inventory.
-    -- Index 0 = first fruit slot/stack. The game auto-resolves which fruit
-    -- based on the stat table signature.
-    local fruitSignatures = {
-        -- Juicilia Lemona (x24) — balanced starter fruit
-        {0, {Value1 = 1, WalkSpeed1 = 1, Value2 = 1, GrowthRate1 = 1}},
-        -- Juicii Limolia (x33) — pure growth fruit
-        {0, {Value2 = 1, GrowthRate1 = 1}},
-        -- Juicea Lemolia (x28) — speed + growth hybrid
-        {0, {WalkSpeed1 = 1, Value2 = 1, GrowthRate1 = 2}},
-    }
-
-    -- Try each signature. If the server accepts it, that fruit exists.
-    -- If it errors, the fruit is exhausted or not owned.
-    for _, sig in ipairs(fruitSignatures) do
-        if not S.eatfruit then break end
-
-        -- Retry same signature up to 3 times (for stack counts > 1)
-        for _ = 1, 3 do
-            if not S.eatfruit then break end
-
-            local success = pcall(function()
-                eatRemote:InvokeServer(sig)
-            end)
-
-            if success then
-                S.cEat += 1
-                task.wait(0.4)
-            else
-                -- Fruit exhausted or not owned, move to next signature
-                break
-            end
-        end
+    -- Cobalt-generated payload: single table argument {index, stats_table}
+    local ok = pcall(function()
+        eatRemote:InvokeServer({
+            0,
+            {
+                Value2 = 1,
+                GrowthRate1 = 1
+            }
+        })
+    end)
+    if ok then
+        S.cEat += 1
     end
 end)
 
@@ -1366,7 +1344,7 @@ loop(0.4, function()
     local myT = getMyTycoon()
     local cash = lp:FindFirstChild("leaderstats") and lp.leaderstats:FindFirstChild("Cash") and lp.leaderstats.Cash.Value or "?"
     cashL.Text = "💰 " .. tostring(cash) .. "   •   " .. (myT and myT.Name or "?")
-    tats.Text = "Upgrades  " .. tostring(S.cUp) .. "\n" ..
+    stats.Text = "Upgrades  " .. tostring(S.cUp) .. "\n" ..
         "Buys      " .. tostring(S.cBuy) .. "\n" ..
         "Drops     " .. tostring(S.cDrop) .. "\n" ..
         "Races     " .. tostring(S.cMini) .. "\n" ..
