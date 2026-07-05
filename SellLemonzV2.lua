@@ -175,13 +175,32 @@ orb3.ZIndex = 1
 orb3.Parent = ambient
 corner(orb3, 125)
 
--- Animate orbs
+-- Parallax state (mouse-driven depth offset, smoothed)
+local parX, parY = 0, 0
+local parTX, parTY = 0, 0
+
+-- Animate orbs (base drift + parallax layers at different depths)
 local orbTime = 0
 local orbConn = RunService.Heartbeat:Connect(function(dt)
     orbTime += dt
-    orb1.Position = UDim2.fromScale(0.2 + math.sin(orbTime*0.3)*0.08, 0.3 + math.cos(orbTime*0.2)*0.06)
-    orb2.Position = UDim2.fromScale(0.7 + math.cos(orbTime*0.25)*0.06, 0.6 + math.sin(orbTime*0.35)*0.08)
-    orb3.Position = UDim2.fromScale(0.5 + math.sin(orbTime*0.4)*0.05, 0.2 + math.cos(orbTime*0.3)*0.07)
+
+    -- Smooth the parallax target toward the raw mouse offset (spring-like lag)
+    parX += (parTX - parX) * math.min(dt * 6, 1)
+    parY += (parTY - parY) * math.min(dt * 6, 1)
+
+    -- Each orb sits at a different "depth" so they drift at different rates
+    orb1.Position = UDim2.fromScale(
+        0.2 + math.sin(orbTime*0.3)*0.08 + parX * 0.020,
+        0.3 + math.cos(orbTime*0.2)*0.06 + parY * 0.020
+    )
+    orb2.Position = UDim2.fromScale(
+        0.7 + math.cos(orbTime*0.25)*0.06 - parX * 0.035,
+        0.6 + math.sin(orbTime*0.35)*0.08 - parY * 0.035
+    )
+    orb3.Position = UDim2.fromScale(
+        0.5 + math.sin(orbTime*0.4)*0.05 + parX * 0.012,
+        0.2 + math.cos(orbTime*0.3)*0.07 - parY * 0.012
+    )
 end)
 
 -- Main panel
@@ -214,6 +233,41 @@ local glow2g = gradient(glow2, ColorSequence.new(PAL.accent3, PAL.accent), 90)
 
 -- Deep shadow
 shadow(main, 8, 40, 0.6)
+
+-- Frosted glass layers (fake backdrop blur via stacked soft-edge tints)
+local frost1 = Instance.new("Frame")
+frost1.Size = UDim2.new(1, 0, 1, 0)
+frost1.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+frost1.BackgroundTransparency = 0.97
+frost1.BorderSizePixel = 0
+frost1.ZIndex = 1
+frost1.Parent = main
+corner(frost1, 24)
+local frost1g = gradient(frost1, ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.new(1,1,1)),
+    ColorSequenceKeypoint.new(0.4, Color3.new(1,1,1)),
+    ColorSequenceKeypoint.new(1, Color3.new(0,0,0))
+}, 90)
+frost1g.Transparency = NumberSequence.new{
+    NumberSequenceKeypoint.new(0, 0.4),
+    NumberSequenceKeypoint.new(0.5, 0.85),
+    NumberSequenceKeypoint.new(1, 1)
+}
+
+-- Edge highlight sliver (top glass rim catching light)
+local rim = Instance.new("Frame")
+rim.Size = UDim2.new(1, -4, 0, 1)
+rim.Position = UDim2.fromOffset(2, 1)
+rim.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+rim.BackgroundTransparency = 0.6
+rim.BorderSizePixel = 0
+rim.ZIndex = 25
+rim.Parent = main
+gradient(rim, ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.new(1,1,1)),
+    ColorSequenceKeypoint.new(0.5, PAL.accent),
+    ColorSequenceKeypoint.new(1, Color3.new(1,1,1))
+}, 0)
 
 -- Particle canvas
 local particleCanvas = Instance.new("Frame")
@@ -286,9 +340,11 @@ hg3.Transparency = NumberSequence.new(0.85, 0.98)
 local hTime = 0
 local hConn = RunService.Heartbeat:Connect(function(dt)
     hTime += dt
-    hg1.Rotation = (hTime * 8) % 360
-    hg2.Rotation = (hTime * 15 + 45) % 360
-    hg3.Rotation = (hTime * 5 + 135) % 360
+    hg1.Rotation = (hTime * 8) % 360 + parX * 6
+    hg2.Rotation = (hTime * 15 + 45) % 360 - parY * 8
+    hg3.Rotation = (hTime * 5 + 135) % 360 + parX * 4
+    hg1.Offset = Vector2.new(parX * 0.03, parY * 0.02)
+    hg2.Offset = Vector2.new(-parX * 0.02, -parY * 0.03)
 end)
 
 -- Logo orb with pulse
@@ -456,15 +512,24 @@ local cursorConn = RunService.Heartbeat:Connect(function()
     local mouse = lp:GetMouse()
     if mouse then
         local absPos = main.AbsolutePosition
+        local absSize = main.AbsoluteSize
         local relX = mouse.X - absPos.X
         local relY = mouse.Y - absPos.Y
-        if relX >= 0 and relX <= main.AbsoluteSize.X and relY >= 0 and relY <= main.AbsoluteSize.Y then
+        if relX >= 0 and relX <= absSize.X and relY >= 0 and relY <= absSize.Y then
             cursorGlow.Visible = true
             TweenService:Create(cursorGlow, TweenInfo.new(0.15), {
                 Position = UDim2.fromOffset(relX - 10, relY - 10)
             }):Play()
+
+            -- Normalize to -1..1 range from panel center, drives ambient parallax
+            if absSize.X > 0 and absSize.Y > 0 then
+                parTX = ((relX / absSize.X) - 0.5) * 2
+                parTY = ((relY / absSize.Y) - 0.5) * 2
+            end
         else
             cursorGlow.Visible = false
+            -- Ease parallax back to center when cursor leaves the panel
+            parTX, parTY = 0, 0
         end
     end
 end)
@@ -577,14 +642,23 @@ local function makeTab(name, icon)
 
     tabs[name] = {btn = b, accent = acc, lbl = lbl, icon = ic}
 
+    local tabBasePos = b.Position
     b.MouseEnter:Connect(function()
         if activeTab ~= name then
-            TweenService:Create(b, TweenInfo.new(0.15), {BackgroundColor3 = PAL.surface, BackgroundTransparency = 0.15}):Play()
+            TweenService:Create(b, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                BackgroundColor3 = PAL.surface,
+                BackgroundTransparency = 0.15,
+                Position = tabBasePos + UDim2.fromOffset(3, 0)
+            }):Play()
         end
     end)
     b.MouseLeave:Connect(function()
         if activeTab ~= name then
-            TweenService:Create(b, TweenInfo.new(0.15), {BackgroundColor3 = PAL.bgGlass, BackgroundTransparency = 0.25}):Play()
+            TweenService:Create(b, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                BackgroundColor3 = PAL.bgGlass,
+                BackgroundTransparency = 0.25,
+                Position = tabBasePos
+            }):Play()
         end
     end)
     b.MouseButton1Click:Connect(function() selectTab(name) end)
@@ -635,14 +709,23 @@ local function makeToggle(page, label, desc, key)
     neuUp.ImageTransparency = 0.85
     local neuDown = shadow(row, 2, 8, 0.7)
 
-    -- Hover with depth shift
+    -- Hover with depth shift + lift
+    local rowBasePos = row.Position
     row.MouseEnter:Connect(function()
-        TweenService:Create(row, TweenInfo.new(0.2), {BackgroundTransparency = 0.05}):Play()
-        TweenService:Create(neuUp, TweenInfo.new(0.2), {ImageTransparency = 0.75}):Play()
+        TweenService:Create(row, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundTransparency = 0.05,
+            Position = rowBasePos - UDim2.fromOffset(0, 2)
+        }):Play()
+        TweenService:Create(neuUp, TweenInfo.new(0.2), {ImageTransparency = 0.7}):Play()
+        TweenService:Create(neuDown, TweenInfo.new(0.2), {ImageTransparency = 0.55}):Play()
     end)
     row.MouseLeave:Connect(function()
-        TweenService:Create(row, TweenInfo.new(0.2), {BackgroundTransparency = 0.15}):Play()
+        TweenService:Create(row, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            BackgroundTransparency = 0.15,
+            Position = rowBasePos
+        }):Play()
         TweenService:Create(neuUp, TweenInfo.new(0.2), {ImageTransparency = 0.85}):Play()
+        TweenService:Create(neuDown, TweenInfo.new(0.2), {ImageTransparency = 0.7}):Play()
     end)
 
     -- LED status dot
@@ -729,9 +812,20 @@ local function makeToggle(page, label, desc, key)
         TweenService:Create(sw, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
             BackgroundColor3 = on and PAL.accent or PAL.bgGlass2
         }):Play()
-        TweenService:Create(knob, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Position = on and UDim2.fromOffset(27, 3) or UDim2.fromOffset(3, 3)
+
+        -- Spring: overshoot past target, squash on arrival, settle back to normal
+        local targetPos = on and UDim2.fromOffset(27, 3) or UDim2.fromOffset(3, 3)
+        TweenService:Create(knob, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out, 0, false, 0), {
+            Position = targetPos,
+            Size = UDim2.fromOffset(25, 19)
         }):Play()
+        task.delay(0.28, function()
+            if knob and knob.Parent then
+                TweenService:Create(knob, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    Size = UDim2.fromOffset(22, 22)
+                }):Play()
+            end
+        end)
         TweenService:Create(bloom, TweenInfo.new(0.3), {
             ImageTransparency = on and 0.4 or 1
         }):Play()
