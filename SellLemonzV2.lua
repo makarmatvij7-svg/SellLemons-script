@@ -220,7 +220,7 @@ corner(main, 24)
 -- Entrance animation
 main.Size = UDim2.fromOffset(0, 0)
 main.BackgroundTransparency = 1
-TweenService:Create(main, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+TweenService:Create(main, TweenInfo.new(0.75, Enum.EasingStyle.Back, Enum.EasingDirection.Out, 0, false, 0.05), {
     Size = UDim2.fromOffset(560, 400),
     BackgroundTransparency = 0.1
 }):Play()
@@ -430,21 +430,21 @@ local function winBtn(txt, x, col, rotAnim)
     stroke(b, PAL.border, 1, 0.4)
 
     b.MouseEnter:Connect(function()
-        TweenService:Create(b, TweenInfo.new(0.15), {BackgroundColor3 = PAL.surfaceLit}):Play()
+        TweenService:Create(b, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {BackgroundColor3 = PAL.surfaceLit, Size = UDim2.fromOffset(36, 36)}):Play()
     end)
     b.MouseLeave:Connect(function()
-        TweenService:Create(b, TweenInfo.new(0.15), {BackgroundColor3 = PAL.surface}):Play()
+        TweenService:Create(b, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {BackgroundColor3 = PAL.surface, Size = UDim2.fromOffset(34, 34)}):Play()
     end)
     b.MouseButton1Down:Connect(function()
-        TweenService:Create(b, TweenInfo.new(0.08), {BackgroundColor3 = PAL.bgGlass}):Play()
+        TweenService:Create(b, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = PAL.bgGlass, Size = UDim2.fromOffset(31, 31)}):Play()
         if rotAnim then
-            TweenService:Create(b, TweenInfo.new(0.3, Enum.EasingStyle.Back), {Rotation = 90}):Play()
+            TweenService:Create(b, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Rotation = 90}):Play()
         end
     end)
     b.MouseButton1Up:Connect(function()
-        TweenService:Create(b, TweenInfo.new(0.15), {BackgroundColor3 = PAL.surfaceLit}):Play()
+        TweenService:Create(b, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {BackgroundColor3 = PAL.surfaceLit, Size = UDim2.fromOffset(34, 34)}):Play()
         if rotAnim then
-            TweenService:Create(b, TweenInfo.new(0.3, Enum.EasingStyle.Back), {Rotation = 0}):Play()
+            TweenService:Create(b, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Rotation = 0}):Play()
         end
     end)
     return b
@@ -517,7 +517,7 @@ local cursorConn = RunService.Heartbeat:Connect(function()
         local relY = mouse.Y - absPos.Y
         if relX >= 0 and relX <= absSize.X and relY >= 0 and relY <= absSize.Y then
             cursorGlow.Visible = true
-            TweenService:Create(cursorGlow, TweenInfo.new(0.15), {
+            TweenService:Create(cursorGlow, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Position = UDim2.fromOffset(relX - 10, relY - 10)
             }):Play()
 
@@ -545,12 +545,12 @@ local function selectTab(name)
     activeTab = name
     for n, m in pairs(tabs) do
         local on = (n == name)
-        TweenService:Create(m.btn, TweenInfo.new(0.25, Enum.EasingStyle.Quart), {
+        TweenService:Create(m.btn, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
             BackgroundColor3 = on and PAL.surface or PAL.bgGlass,
             BackgroundTransparency = on and 0.05 or 0.25
         }):Play()
-        TweenService:Create(m.lbl, TweenInfo.new(0.25), {TextColor3 = on and PAL.txt or PAL.txtDim}):Play()
-        TweenService:Create(m.icon, TweenInfo.new(0.25), {TextColor3 = on and PAL.accent or PAL.txtDim}):Play()
+        TweenService:Create(m.lbl, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {TextColor3 = on and PAL.txt or PAL.txtDim}):Play()
+        TweenService:Create(m.icon, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {TextColor3 = on and PAL.accent or PAL.txtDim}):Play()
 
         -- Slide indicator
         if on then
@@ -571,19 +571,21 @@ local function selectTab(name)
     for n, p in pairs(pages) do
         if n == name then
             p.Visible = true
-            p.Position = UDim2.fromOffset(30, 0)
+            p.Position = UDim2.fromOffset(24, 0)
             p.ScrollBarImageTransparency = 0.3
-            TweenService:Create(p, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            TweenService:Create(p, TweenInfo.new(0.45, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                 Position = UDim2.fromOffset(0, 0)
             }):Play()
-            -- Stagger children
+            -- Stagger children in with a gentle settle
             for i, child in ipairs(p:GetChildren()) do
                 if child:IsA("GuiObject") and child ~= p:FindFirstChildOfClass("UIListLayout") and child ~= p:FindFirstChildOfClass("UIPadding") then
-                    child.Position = child.Position + UDim2.fromOffset(0, 15)
-                    child.BackgroundTransparency = math.min(child.BackgroundTransparency + 0.3, 1)
-                    TweenService:Create(child, TweenInfo.new(0.3 + i*0.03, Enum.EasingStyle.Quart), {
-                        Position = child.Position - UDim2.fromOffset(0, 15),
-                        BackgroundTransparency = child.BackgroundTransparency - 0.3
+                    local origTrans = child.BackgroundTransparency
+                    child.Position = child.Position + UDim2.fromOffset(0, 12)
+                    child.BackgroundTransparency = math.min(origTrans + 0.35, 1)
+                    local targetPos = child.Position - UDim2.fromOffset(0, 12)
+                    TweenService:Create(child, TweenInfo.new(0.4 + i*0.045, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                        Position = targetPos,
+                        BackgroundTransparency = origTrans
                     }):Play()
                 end
             end
@@ -826,16 +828,16 @@ local function makeToggle(page, label, desc, key)
                 }):Play()
             end
         end)
-        TweenService:Create(bloom, TweenInfo.new(0.3), {
+        TweenService:Create(bloom, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             ImageTransparency = on and 0.4 or 1
         }):Play()
-        TweenService:Create(row, TweenInfo.new(0.2), {
+        TweenService:Create(row, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             BackgroundColor3 = on and PAL.surfaceLit or PAL.surface
         }):Play()
-        TweenService:Create(led, TweenInfo.new(0.3), {
+        TweenService:Create(led, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             BackgroundColor3 = on and PAL.ledOn or PAL.ledOff
         }):Play()
-        TweenService:Create(ledGlow, TweenInfo.new(0.3), {
+        TweenService:Create(ledGlow, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             ImageColor3 = on and PAL.ledOn or PAL.ledOff,
             ImageTransparency = on and 0.5 or 0.8
         }):Play()
@@ -1118,7 +1120,7 @@ local originalSize = UDim2.fromOffset(560, 400)
 minB.MouseButton1Click:Connect(function()
     minimized = not minimized
     if minimized then
-        TweenService:Create(main, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.InOut), {
+        TweenService:Create(main, TweenInfo.new(0.45, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut), {
             Size = UDim2.fromOffset(560, 72)
         }):Play()
         body.Visible = false
@@ -1126,7 +1128,7 @@ minB.MouseButton1Click:Connect(function()
     else
         body.Visible = true
         particleCanvas.Visible = true
-        TweenService:Create(main, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        TweenService:Create(main, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
             Size = originalSize
         }):Play()
     end
