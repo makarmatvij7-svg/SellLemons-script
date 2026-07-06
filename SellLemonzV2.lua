@@ -3,7 +3,7 @@
 -- Every auto-farm loop, remote call, and state toggle preserved.
 -- Visual layer rebuilt with particle engine, mesh gradients, spring
 -- physics, ripple effects, cursor trails, and ambient lighting.
--- RightCtrl hides, — minimizes, ✕ closes.
+-- RightShift hides, — minimizes, ✕ closes.
 -- _G.LemonFarm.Destroy() removes everything.
 --==================================================================
 if _G.LemonFarm and _G.LemonFarm.Destroy then pcall(_G.LemonFarm.Destroy) end
@@ -1000,7 +1000,7 @@ stats.ZIndex = 14
 stats.Text = ""
 stats.Parent = statsCard
 
-sectionInfo(pMisc, "<font color=\'#8A8F9C\'>RightCtrl hides the menu  •  drag the header to move</font>")
+sectionInfo(pMisc, "<font color=\'#8A8F9C\'>RightShift hides the menu  •  drag the header to move</font>")
 selectTab("Farm")
 
 -- ================================================================
@@ -1134,15 +1134,50 @@ minB.MouseButton1Click:Connect(function()
     end
 end)
 
+local panelHidden = false
+local function setPanelHidden(hidden)
+    if hidden == panelHidden then return end
+    panelHidden = hidden
+    if hidden then
+        TweenService:Create(main, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+            Size = UDim2.fromOffset(main.AbsoluteSize.X, 0),
+            BackgroundTransparency = 1
+        }):Play()
+        task.delay(0.28, function()
+            if panelHidden then main.Visible = false end
+        end)
+    else
+        main.Visible = true
+        main.Size = UDim2.fromOffset(main.AbsoluteSize.X > 0 and main.AbsoluteSize.X or 560, 0)
+        main.BackgroundTransparency = 1
+        local targetSize = minimized and UDim2.fromOffset(560, 72) or originalSize
+        TweenService:Create(main, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = targetSize,
+            BackgroundTransparency = 0.1
+        }):Play()
+    end
+end
+
 UserInputService.InputBegan:Connect(function(i, gpe)
     if gpe then return end
-    if i.KeyCode == Enum.KeyCode.RightControl then
-        main.Visible = not main.Visible
+    if i.KeyCode == Enum.KeyCode.RightShift then
+        setPanelHidden(not panelHidden)
     end
 end)
 
 closeB.MouseButton1Click:Connect(function()
-    if _G.LemonFarm then _G.LemonFarm.Destroy() end
+    closeB.Active = false
+    minB.Active = false
+    TweenService:Create(main, TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+        Size = UDim2.fromOffset(0, 0),
+        BackgroundTransparency = 1,
+        Rotation = 6
+    }):Play()
+    TweenService:Create(glow1, TweenInfo.new(0.25), {Transparency = 1}):Play()
+    TweenService:Create(glow2, TweenInfo.new(0.25), {Transparency = 1}):Play()
+    task.delay(0.34, function()
+        if _G.LemonFarm then _G.LemonFarm.Destroy() end
+    end)
 end)
 
 -- ================================================================
@@ -1351,4 +1386,4 @@ _G.LemonFarm = {
     end
 }
 
-print("[🍋 Lemon Hub Maximum] Loaded — The Final Form. RightCtrl hides, ✕ closes.")
+print("[🍋 Lemon Hub Maximum] Loaded — The Final Form. RightShift hides, ✕ closes.")
