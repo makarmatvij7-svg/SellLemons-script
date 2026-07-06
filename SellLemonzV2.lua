@@ -28,7 +28,7 @@ local S = {
     upgrade=false, buy=false, drops=false, click=false,
     rebirth=false, ascend=false, evolve=false,
     powers=false, wake=false, offers=false, offline=false,
-    mini=false, antiafk=false, harvest=false, remotebuy=false, autoeat=false, autopowers=false,
+    mini=false, antiafk=false, harvest=false, remotebuy=false, autoeat=false, autopowers=false, perfmode=false,
     cUp=0, cBuy=0, cDrop=0, cMini=0, cHarvest=0, cRemoteBuy=0, cAutoEat=0, cAutoPowers=0
 }
 
@@ -184,7 +184,12 @@ local parTX, parTY = 0, 0
 
 -- Animate orbs (base drift + parallax layers at different depths)
 local orbTime = 0
+-- Orb parallax: 30fps throttle to reduce CPU load
+local orbLastUpdate = 0
 local orbConn = RunService.Heartbeat:Connect(function(dt)
+    local now = tick()
+    if now - orbLastUpdate < 0.033 then return end
+    orbLastUpdate = now
     orbTime += dt
 
     -- Smooth the parallax target toward the raw mouse offset (spring-like lag)
@@ -341,7 +346,12 @@ hg3.Transparency = NumberSequence.new(0.85, 0.98)
 
 -- Animate header gradients
 local hTime = 0
+-- Header gradients: 30fps throttle
+local hLastUpdate = 0
 local hConn = RunService.Heartbeat:Connect(function(dt)
+    local now = tick()
+    if now - hLastUpdate < 0.033 then return end
+    hLastUpdate = now
     hTime += dt
     hg1.Rotation = (hTime * 8) % 360 + parX * 6
     hg2.Rotation = (hTime * 15 + 45) % 360 - parY * 8
@@ -371,8 +381,13 @@ logoPulse.Parent = logoOrb
 corner(logoPulse, 14)
 
 -- Pulse animation
+-- Logo pulse: 30fps throttle
 local pulseTime = 0
+local pulseLastUpdate = 0
 local pulseConn = RunService.Heartbeat:Connect(function(dt)
+    local now = tick()
+    if now - pulseLastUpdate < 0.033 then return end
+    pulseLastUpdate = now
     pulseTime += dt
     local s = 1 + math.sin(pulseTime * 3) * 0.15
     logoPulse.Size = UDim2.fromScale(s, s)
@@ -511,29 +526,29 @@ cursorGlow.Parent = main
 corner(cursorGlow, 10)
 shadow(cursorGlow, 0, 12, 0.7, PAL.accent)
 
+-- Cursor tracking: direct position assignment (no tween) + 30fps throttle
+local cursorLastUpdate = 0
 local cursorConn = RunService.Heartbeat:Connect(function()
-    local mouse = lp:GetMouse()
-    if mouse then
-        local absPos = main.AbsolutePosition
-        local absSize = main.AbsoluteSize
-        local relX = mouse.X - absPos.X
-        local relY = mouse.Y - absPos.Y
-        if relX >= 0 and relX <= absSize.X and relY >= 0 and relY <= absSize.Y then
-            cursorGlow.Visible = true
-            TweenService:Create(cursorGlow, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                Position = UDim2.fromOffset(relX - 10, relY - 10)
-            }):Play()
+    local now = tick()
+    if now - cursorLastUpdate < 0.033 then return end -- 30fps cap
+    cursorLastUpdate = now
 
-            -- Normalize to -1..1 range from panel center, drives ambient parallax
-            if absSize.X > 0 and absSize.Y > 0 then
-                parTX = ((relX / absSize.X) - 0.5) * 2
-                parTY = ((relY / absSize.Y) - 0.5) * 2
-            end
-        else
-            cursorGlow.Visible = false
-            -- Ease parallax back to center when cursor leaves the panel
-            parTX, parTY = 0, 0
+    local mouse = lp:GetMouse()
+    if not mouse then return end
+    local absPos = main.AbsolutePosition
+    local absSize = main.AbsoluteSize
+    local relX = mouse.X - absPos.X
+    local relY = mouse.Y - absPos.Y
+    if relX >= 0 and relX <= absSize.X and relY >= 0 and relY <= absSize.Y then
+        cursorGlow.Visible = true
+        cursorGlow.Position = UDim2.fromOffset(relX - 10, relY - 10)
+        if absSize.X > 0 and absSize.Y > 0 then
+            parTX = ((relX / absSize.X) - 0.5) * 2
+            parTY = ((relY / absSize.Y) - 0.5) * 2
         end
+    else
+        cursorGlow.Visible = false
+        parTX, parTY = 0, 0
     end
 end)
 
@@ -966,6 +981,7 @@ makeDivider(pBonus)
 
 local pMisc  = makeTab("Misc", "⚙️")
 makeToggle(pMisc, "Anti-AFK", "Never get idle-kicked", "antiafk")
+makeToggle(pMisc, "Performance Mode", "Reduces visual effects to boost FPS", "perfmode")
 makeDivider(pMisc)
 
 -- Stats card with rolling counters
@@ -1018,7 +1034,7 @@ local activeParticles = {}
 local particleTypes = {"🍋", "✦", "•", "◆", "◇", "✧"}
 
 local function spawnParticle()
-    if #activeParticles > 20 then return end
+    if #activeParticles > 12 then return end
     local p
     if #particlePool > 0 then
         p = table.remove(particlePool)
@@ -1052,7 +1068,12 @@ local function spawnParticle()
     table.insert(activeParticles, {obj = p, startX = startX, startY = startY, speed = speed, amp = amp, freq = freq, rotSpeed = rotSpeed, scalePulse = scalePulse, life = 0, maxLife = maxLife})
 end
 
+-- Particle physics: 30fps throttle
+local particleLastUpdate = 0
 local particleConn = RunService.Heartbeat:Connect(function(dt)
+    local now = tick()
+    if now - particleLastUpdate < 0.033 then return end
+    particleLastUpdate = now
     for i = #activeParticles, 1, -1 do
         local part = activeParticles[i]
         part.life += dt
@@ -1074,20 +1095,58 @@ end)
 
 local particleSpawner = task.spawn(function()
     while true do
-        task.wait(0.8 + math.random() * 1.2)
+        task.wait(1.5 + math.random() * 2)
         if gui and gui.Parent then
-            pcall(spawnParticle)
+            if not S.perfmode then
+                pcall(spawnParticle)
+            end
         else
             break
         end
     end
 end)
 
+-- Performance mode: disable heavy visual effects
+local perfConn = nil
+local function updatePerfMode()
+    if S.perfmode then
+        ambient.Visible = false
+        particleCanvas.Visible = false
+        cursorGlow.Visible = false
+        if not perfConn then
+            perfConn = RunService.Heartbeat:Connect(function()
+                if not S.perfmode then return end
+                -- Minimal orb movement in perf mode
+                orb1.Position = UDim2.fromScale(0.2, 0.3)
+                orb2.Position = UDim2.fromScale(0.7, 0.6)
+                orb3.Position = UDim2.fromScale(0.5, 0.2)
+            end)
+        end
+    else
+        ambient.Visible = true
+        particleCanvas.Visible = true
+        if perfConn then
+            perfConn:Disconnect()
+            perfConn = nil
+        end
+    end
+end
+
+-- Watch for perf mode toggle
+local perfCheckConn = RunService.Heartbeat:Connect(function()
+    updatePerfMode()
+end)
+
 -- ================================================================
 -- BORDER GLOW ANIMATION
 -- ================================================================
+-- Border glow: 30fps throttle
 local glowTime = 0
+local glowLastUpdate = 0
 local glowConn = RunService.Heartbeat:Connect(function(dt)
+    local now = tick()
+    if now - glowLastUpdate < 0.033 then return end
+    glowLastUpdate = now
     glowTime += dt
     glow1g.Rotation = (glowTime * 12) % 360
     glow2g.Rotation = (glowTime * 18 + 90) % 360
@@ -1397,30 +1456,34 @@ loop(0.05, function()
     local r = remotes:FindFirstChild("UpgradePowerLevel")
     if not r then return end
 
-    -- Round-robin through powers, 1 purchase per iteration
-    -- This is MUCH faster than the old while-loop approach
-    local name = POWER_NAMES[powerIdx]
-    if not name then powerIdx = 1 return end
+    -- Batch multiple purchases per loop iteration (more efficient)
+    -- but yield every few to prevent starving other threads
+    local batchCount = 0
+    while S.autopowers and batchCount < 5 do
+        local name = POWER_NAMES[powerIdx]
+        if not name then powerIdx = 1 break end
 
-    -- Skip powers with 10+ consecutive fails (likely maxed)
-    if (powerFailStreak[name] or 0) >= 10 then
-        powerIdx = (powerIdx % #POWER_NAMES) + 1
-        return
-    end
+        -- Skip powers with 10+ consecutive fails (likely maxed)
+        if (powerFailStreak[name] or 0) >= 10 then
+            powerIdx = (powerIdx % #POWER_NAMES) + 1
+            batchCount += 1
+            continue
+        end
 
-    local ok, res = pcall(function()
-        return r:InvokeServer(name)
-    end)
+        local ok, res = pcall(function()
+            return r:InvokeServer(name)
+        end)
 
-    if ok and res == 1 then
-        -- Success! Stay on this power, buy again next iteration
-        powerFailStreak[name] = 0
-        S.cAutoPowers += 1
-        -- Don't advance powerIdx — buy same power again
-    else
-        -- Fail (no money or maxed) → move to next power
-        powerFailStreak[name] = (powerFailStreak[name] or 0) + 1
-        powerIdx = (powerIdx % #POWER_NAMES) + 1
+        if ok and res == 1 then
+            powerFailStreak[name] = 0
+            S.cAutoPowers += 1
+            batchCount += 1
+            -- Stay on same power
+        else
+            powerFailStreak[name] = (powerFailStreak[name] or 0) + 1
+            powerIdx = (powerIdx % #POWER_NAMES) + 1
+            batchCount += 1
+        end
     end
 end)
 
@@ -1739,6 +1802,8 @@ _G.LemonFarm = {
         if glowConn then glowConn:Disconnect() end
         if particleConn then particleConn:Disconnect() end
         if cursorConn then cursorConn:Disconnect() end
+        if perfConn then perfConn:Disconnect() end
+        if perfCheckConn then perfCheckConn:Disconnect() end
         if gui then gui:Destroy() end
     end
 }
