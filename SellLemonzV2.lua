@@ -1487,7 +1487,7 @@ loop(0.05, function()
     end
 end)
 
-loop(10, function()
+loop(30, function()
     if not S.rebirth then return end
     local myT = getMyTycoon()
     local r = rem(myT, "Rebirth")
