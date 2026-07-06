@@ -28,8 +28,8 @@ local S = {
     upgrade=false, buy=false, drops=false, click=false,
     rebirth=false, ascend=false, evolve=false,
     powers=false, wake=false, offers=false, offline=false,
-    mini=false, antiafk=false, harvest=false,
-    cUp=0, cBuy=0, cDrop=0, cMini=0, cHarvest=0
+    mini=false, antiafk=false, harvest=false, remotebuy=false, autoeat=false, autopowers=false,
+    cUp=0, cBuy=0, cDrop=0, cMini=0, cHarvest=0, cRemoteBuy=0, cAutoEat=0, cAutoPowers=0
 }
 
 -- ================================================================
@@ -944,6 +944,7 @@ makeToggle(pFarm, "Auto Buy", "Buys unlocked tycoon buttons", "buy")
 makeToggle(pFarm, "Auto Collect Drops", "Instantly grabs cash drops", "drops")
 makeToggle(pFarm, "Auto Click Fruit", "Auto-clicks the lemon trees", "click")
 makeToggle(pFarm, "Auto Harvest", "Harvests ALL orchard plots via remote", "harvest")
+makeToggle(pFarm, "Auto Upgrade Powers", "Cycles all power upgrades via verified remote", "autopowers")
 makeDivider(pFarm)
 
 local pPrest = makeTab("Prestige", "🔼")
@@ -959,6 +960,8 @@ makeToggle(pBonus, "Auto Wake Income", "Keeps every earner producing", "wake")
 makeToggle(pBonus, "Auto Phone Offers", "Auto-accepts deal calls", "offers")
 makeToggle(pBonus, "Auto Offline Cash", "Claims free 2x offline (no Robux)", "offline")
 makeToggle(pBonus, "Auto Minigame", "Auto-wins LemonDash (5m cooldown)", "mini")
+makeToggle(pBonus, "Remote Buy", "Buys next item remotely (gamepass)", "remotebuy")
+makeToggle(pBonus, "Auto Eater", "Auto-eats orchard fruit (gamepass)", "autoeat")
 makeDivider(pBonus)
 
 local pMisc  = makeTab("Misc", "⚙️")
@@ -1361,6 +1364,128 @@ loop(0.5, function()
     end
 end)
 
+-- ================================================================
+-- AUTO UPGRADE POWERS — BUY FULL
+-- Cycles each power and SPAMS purchases until the tier upgrades or money runs out.
+-- The game uses a progress bar (x3 → x4) where each call buys ONE level.
+-- We keep buying until InvokeServer stops returning 1.
+-- ================================================================
+local POWER_NAMES = {"UpgradeStack", "BuyNext", "Manage", "WalkSpeed", "ClickFruitValue"}
+local powerMaxed = {}   -- powers that returned non-1 twice in a row
+local powerCooldown = {} -- no-money cooldown per power
+local powerTier = {}     -- tracks current tier to detect full upgrades
+
+local function getPowerTier(myT, name)
+    -- Try to read the current tier from the tycoon's attributes or values
+    -- Different games store this differently; try common paths
+    local stats = myT:FindFirstChild("Stats")
+    if stats then
+        local v = stats:FindFirstChild(name .. "Tier") or stats:FindFirstChild(name)
+        if v then
+            if v:IsA("IntValue") or v:IsA("NumberValue") then return v.Value end
+            if v:IsA("StringValue") then return v.Value end
+        end
+    end
+    local data = myT:FindFirstChild("Data")
+    if data then
+        local v = data:FindFirstChild(name .. "Tier") or data:FindFirstChild(name)
+        if v then
+            if v:IsA("IntValue") or v:IsA("NumberValue") then return v.Value end
+            if v:IsA("StringValue") then return v.Value end
+        end
+    end
+    return nil
+end
+
+loop(0.4, function()
+    if not S.autopowers then return end
+    local myT = getMyTycoon()
+    if not myT then return end
+    local remotes = myT:FindFirstChild("Remotes")
+    if not remotes then return end
+    local r = remotes:FindFirstChild("UpgradePowerLevel")
+    if not r then return end
+
+    for _, name in ipairs(POWER_NAMES) do
+        if not S.autopowers then break end
+
+        -- Skip confirmed-maxed powers
+        if powerMaxed[name] then continue end
+
+        -- Respect no-money cooldown (shorter now since we buy full)
+        if powerCooldown[name] and (tick() - powerCooldown[name]) < 2 then continue end
+
+        -- Remember starting tier to detect when a full upgrade completes
+        local startTier = getPowerTier(myT, name)
+        local bought = 0
+        local lastTier = startTier
+
+        -- SPAM BUY until we can't buy anymore for this power
+        while S.autopowers do
+            local ok, res = pcall(function()
+                return r:InvokeServer(name)
+            end)
+
+            if not ok then
+                -- Remote error → stop spamming this power for now
+                powerCooldown[name] = tick()
+                break
+            end
+
+            if res ~= 1 then
+                -- No money or maxed → stop spamming
+                -- Double-check: one more try to distinguish transient fail
+                local ok2, res2 = pcall(function()
+                    return r:InvokeServer(name)
+                end)
+                if ok2 and res2 == 1 then
+                    bought += 1
+                    S.cAutoPowers += 1
+                    -- Continue spamming
+                else
+                    -- Confirmed exhausted
+                    if bought == 0 then
+                        -- Couldn't buy even one → mark for longer cooldown
+                        powerCooldown[name] = tick() + 10
+                    end
+                    break
+                end
+            else
+                -- Success, bought one level
+                bought += 1
+                S.cAutoPowers += 1
+
+                -- Check if tier changed = full upgrade completed
+                local currentTier = getPowerTier(myT, name)
+                if currentTier and lastTier and currentTier ~= lastTier then
+                    -- Tier upgraded! This is a "full" upgrade.
+                    lastTier = currentTier
+                end
+            end
+
+            -- Yield every 5 purchases to prevent frame drops
+            if bought % 5 == 0 then
+                task.wait(0.05)
+            end
+
+            -- Safety break after 1000 purchases (infinite loop guard)
+            if bought >= 1000 then break end
+        end
+
+        -- If we bought nothing this cycle, mark as potentially maxed
+        if bought == 0 then
+            -- Check if this power has been empty for multiple cycles
+            local failCount = (powerMaxed[name .. "_fails"] or 0) + 1
+            powerMaxed[name .. "_fails"] = failCount
+            if failCount >= 5 then
+                powerMaxed[name] = true
+            end
+        else
+            powerMaxed[name .. "_fails"] = 0
+        end
+    end
+end)
+
 loop(10, function()
     if not S.rebirth then return end
     local r = rem(getMyTycoon(), "Rebirth")
@@ -1379,19 +1504,27 @@ loop(8, function()
     if r then pcall(function() r:InvokeServer() end) end
 end)
 
--- Power upgrade cache to avoid spam on maxed powers
-local powerCache = {}
+-- Power upgrades — Cobalt-verified path: workspace.Tycoon{N}.Remotes.UpgradePowerLevel
+-- Returns 1 on success. We check return value to distinguish maxed vs no-money.
+local powerCooldowns = {}
 loop(0.5, function()
     if not S.powers then return end
-    local r = rem(getMyTycoon(), "UpgradePowerLevel")
+    local myT = getMyTycoon()
+    if not myT then return end
+    local r = myT:FindFirstChild("Remotes") and myT.Remotes:FindFirstChild("UpgradePowerLevel")
     if not r then return end
     for _, n in ipairs(POWERS) do
         if not S.powers then break end
         local uid = n
-        if powerCache[uid] and (tick() - powerCache[uid]) < 5 then continue end
-        local ok = pcall(function() r:InvokeServer(n) end)
-        if not ok then
-            powerCache[uid] = tick()
+        if powerCooldowns[uid] and (tick() - powerCooldowns[uid]) < 3 then continue end
+        local ok, res = pcall(function() return r:InvokeServer(n) end)
+        -- res == 1 means success; nil/false means maxed or no money
+        if ok and res == 1 then
+            S.cUp += 1
+            powerCooldowns[uid] = nil
+        else
+            -- Cooldown to prevent spam, but retry later (might be no-money, not maxed)
+            powerCooldowns[uid] = tick()
         end
     end
 end)
@@ -1444,6 +1577,137 @@ loop(5, function()
     end
 end)
 
+-- ================================================================
+-- REMOTE BUY — Discovers and fires the remote-buy remote
+-- Common names: BuyNext, RemoteBuy, PurchaseNext, RemotePurchase
+-- ================================================================
+local remoteBuyNames = {"BuyNext", "RemoteBuy", "PurchaseNext", "RemotePurchase", "BuyRemote"}
+local remoteBuyCache = {}
+loop(1, function()
+    if not S.remotebuy then return end
+    local myT = getMyTycoon()
+    if not myT then return end
+    local remotes = myT:FindFirstChild("Remotes")
+    if not remotes then return end
+
+    for _, name in ipairs(remoteBuyNames) do
+        if not S.remotebuy then break end
+        local r = remotes:FindFirstChild(name)
+        if r and r:IsA("RemoteFunction") then
+            local uid = name
+            if remoteBuyCache[uid] and (tick() - remoteBuyCache[uid]) < 2 then continue end
+            local ok = pcall(function() r:InvokeServer() end)
+            if ok then
+                S.cRemoteBuy += 1
+                remoteBuyCache[uid] = nil
+            else
+                remoteBuyCache[uid] = tick()
+            end
+            break
+        end
+    end
+end)
+
+-- ================================================================
+-- AUTO EATER — Discovers and fires auto-eat / eat-fruit remotes
+-- Tries tycoon remotes first, then orchard remotes, then RS.Core
+-- ================================================================
+local autoEatNames = {"EatFruit", "AutoEat", "ConsumeFruit", "EatOrchardFruit"}
+local autoEatCache = {}
+loop(2, function()
+    if not S.autoeat then return end
+    local myT = getMyTycoon()
+    if not myT then return end
+
+    -- Try tycoon remotes first
+    local remotes = myT:FindFirstChild("Remotes")
+    if remotes then
+        for _, name in ipairs(autoEatNames) do
+            if not S.autoeat then break end
+            local r = remotes:FindFirstChild(name)
+            if r then
+                local uid = "tycoon_" .. name
+                if autoEatCache[uid] and (tick() - autoEatCache[uid]) < 3 then continue end
+                local ok = pcall(function()
+                    if r:IsA("RemoteFunction") then
+                        r:InvokeServer()
+                    elseif r:IsA("RemoteEvent") then
+                        r:FireServer()
+                    end
+                end)
+                if ok then
+                    S.cAutoEat += 1
+                    autoEatCache[uid] = nil
+                else
+                    autoEatCache[uid] = tick()
+                end
+                return
+            end
+        end
+    end
+
+    -- Try orchard plot remotes
+    local orchard = myT:FindFirstChild("Orchard")
+    if orchard then
+        local plots = orchard:FindFirstChild("Plots")
+        if plots then
+            for _, plot in ipairs(plots:GetChildren()) do
+                if not S.autoeat then break end
+                for _, name in ipairs(autoEatNames) do
+                    if not S.autoeat then break end
+                    local r = plot:FindFirstChild(name)
+                    if r then
+                        local uid = tostring(plot) .. "_" .. name
+                        if autoEatCache[uid] and (tick() - autoEatCache[uid]) < 3 then continue end
+                        local ok = pcall(function()
+                            if r:IsA("RemoteFunction") then
+                                r:InvokeServer()
+                            elseif r:IsA("RemoteEvent") then
+                                r:FireServer()
+                            end
+                        end)
+                        if ok then
+                            S.cAutoEat += 1
+                            autoEatCache[uid] = nil
+                        else
+                            autoEatCache[uid] = tick()
+                        end
+                        return
+                    end
+                end
+            end
+        end
+    end
+
+    -- Try ReplicatedStorage.Core.RemoteRequest
+    local core = RS:FindFirstChild("Core")
+    local rr = core and core:FindFirstChild("RemoteRequest")
+    if rr then
+        for _, name in ipairs(autoEatNames) do
+            if not S.autoeat then break end
+            local r = rr:FindFirstChild(name)
+            if r then
+                local uid = "rs_" .. name
+                if autoEatCache[uid] and (tick() - autoEatCache[uid]) < 3 then continue end
+                local ok = pcall(function()
+                    if r:IsA("RemoteFunction") then
+                        r:InvokeServer()
+                    elseif r:IsA("RemoteEvent") then
+                        r:FireServer()
+                    end
+                end)
+                if ok then
+                    S.cAutoEat += 1
+                    autoEatCache[uid] = nil
+                else
+                    autoEatCache[uid] = tick()
+                end
+                return
+            end
+        end
+    end
+end)
+
 lp.Idled:Connect(function()
     if S.antiafk then
         pcall(function()
@@ -1460,7 +1724,7 @@ loop(0.4, function()
     local myT = getMyTycoon()
     local cash = lp:FindFirstChild("leaderstats") and lp.leaderstats:FindFirstChild("Cash") and lp.leaderstats.Cash.Value or "?"
     cashL.Text = "💰 " .. tostring(cash) .. "   •   " .. (myT and myT.Name or "?")
-    stats.Text = string.format("Upgrades  %d\nBuys      %d\nDrops     %d\nHarvests  %d\nRaces     %d", S.cUp, S.cBuy, S.cDrop, S.cHarvest, S.cMini)
+    stats.Text = string.format("Upgrades    %d\nBuys        %d\nDrops       %d\nHarvests    %d\nPowers      %d\nRemoteBuy   %d\nAutoEat     %d\nRaces       %d", S.cUp, S.cBuy, S.cDrop, S.cHarvest, S.cAutoPowers, S.cRemoteBuy, S.cAutoEat, S.cMini)
 end)
 
 -- ================================================================
@@ -1472,6 +1736,14 @@ _G.LemonFarm = {
         for k in pairs(S) do
             if type(S[k]) == "boolean" then S[k] = false end
         end
+        table.clear(purchasedCache)
+        table.clear(upgradeCache)
+        table.clear(harvestCache)
+        table.clear(powerCooldowns)
+        table.clear(remoteBuyCache)
+        table.clear(autoEatCache)
+        table.clear(powerMaxed)
+        table.clear(powerCooldown)
         if orbConn then orbConn:Disconnect() end
         if hConn then hConn:Disconnect() end
         if pulseConn then pulseConn:Disconnect() end
