@@ -5,6 +5,9 @@
 -- physics, ripple effects, cursor trails, and ambient lighting.
 -- RightShift hides, — minimizes, ✕ closes.
 -- _G.LemonFarm.Destroy() removes everything.
+--
+-- INTEGRATED: Cobalt-generated OrchardPlot.Harvest auto-harvest
+-- for ALL tycoon orchard plots.
 --==================================================================
 if _G.LemonFarm and _G.LemonFarm.Destroy then pcall(_G.LemonFarm.Destroy) end
 
@@ -19,14 +22,14 @@ local lp = Players.LocalPlayer
 local POWERS = {"UpgradeStack","BuyNext","Manage","WalkSpeed","ClickFruitValue"}
 
 -- ================================================================
--- STATE (PRESERVED EXACTLY)
+-- STATE (PRESERVED EXACTLY + harvest)
 -- ================================================================
 local S = {
     upgrade=false, buy=false, drops=false, click=false,
     rebirth=false, ascend=false, evolve=false,
     powers=false, wake=false, offers=false, offline=false,
-    mini=false, antiafk=false,
-    cUp=0, cBuy=0, cDrop=0, cMini=0
+    mini=false, antiafk=false, harvest=false,
+    cUp=0, cBuy=0, cDrop=0, cMini=0, cHarvest=0
 }
 
 -- ================================================================
@@ -940,6 +943,7 @@ makeToggle(pFarm, "Auto Upgrade", "Bulk-upgrades all income sources", "upgrade")
 makeToggle(pFarm, "Auto Buy", "Buys unlocked tycoon buttons", "buy")
 makeToggle(pFarm, "Auto Collect Drops", "Instantly grabs cash drops", "drops")
 makeToggle(pFarm, "Auto Click Fruit", "Auto-clicks the lemon trees", "click")
+makeToggle(pFarm, "Auto Harvest", "Harvests ALL orchard plots via remote", "harvest")
 makeDivider(pFarm)
 
 local pPrest = makeTab("Prestige", "🔼")
@@ -1181,7 +1185,7 @@ closeB.MouseButton1Click:Connect(function()
 end)
 
 -- ================================================================
--- FUNCTIONAL LOOPS (PRESERVED EXACTLY)
+-- FUNCTIONAL LOOPS (PRESERVED EXACTLY + HARVEST)
 -- ================================================================
 local alive = true
 local function getMyTycoon()
@@ -1270,6 +1274,52 @@ loop(0.2, function()
     for _, d in ipairs(myT:GetDescendants()) do
         if not S.click then break end
         if d:IsA("ClickDetector") then pcall(fireclickdetector, d) end
+    end
+end)
+
+-- ================================================================
+-- AUTO HARVEST — Cobalt-Generated Remote Integration
+-- Iterates ALL orchard plots in the user's tycoon and harvests them
+-- via the ReplicatedStorage.Core.RemoteRequest.OrchardPlot.Harvest
+-- remote function.
+-- ================================================================
+local harvestEvent = nil
+local function getHarvestRemote()
+    if harvestEvent then return harvestEvent end
+    local core = RS:FindFirstChild("Core")
+    if not core then return nil end
+    local rr = core:FindFirstChild("RemoteRequest")
+    if not rr then return nil end
+    harvestEvent = rr:FindFirstChild("OrchardPlot.Harvest")
+    return harvestEvent
+end
+
+loop(0.5, function()
+    if not S.harvest then return end
+    local myT = getMyTycoon()
+    if not myT then return end
+
+    local hev = getHarvestRemote()
+    if not hev then return end
+
+    -- Find the Orchard folder inside the tycoon
+    local orchard = myT:FindFirstChild("Orchard")
+    if not orchard then return end
+
+    local plots = orchard:FindFirstChild("Plots")
+    if not plots then return end
+
+    -- Iterate every plot and harvest
+    for _, plot in ipairs(plots:GetChildren()) do
+        if not S.harvest then break end
+        if plot:IsA("BasePart") or plot:IsA("Model") or plot:IsA("Folder") then
+            local ok, res = pcall(function()
+                return hev:InvokeServer(plot)
+            end)
+            if ok then
+                S.cHarvest += 1
+            end
+        end
     end
 end)
 
@@ -1364,7 +1414,7 @@ loop(0.4, function()
     local myT = getMyTycoon()
     local cash = lp:FindFirstChild("leaderstats") and lp.leaderstats:FindFirstChild("Cash") and lp.leaderstats.Cash.Value or "?"
     cashL.Text = "💰 " .. tostring(cash) .. "   •   " .. (myT and myT.Name or "?")
-    stats.Text = string.format("Upgrades  %d\nBuys      %d\nDrops     %d\nRaces     %d", S.cUp, S.cBuy, S.cDrop, S.cMini)
+    stats.Text = string.format("Upgrades  %d\nBuys      %d\nDrops     %d\nHarvests  %d\nRaces     %d", S.cUp, S.cBuy, S.cDrop, S.cHarvest, S.cMini)
 end)
 
 -- ================================================================
