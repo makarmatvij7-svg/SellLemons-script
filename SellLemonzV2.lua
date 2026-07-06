@@ -19,7 +19,7 @@ local RS = game:GetService("ReplicatedStorage")
 local VirtualUser = game:GetService("VirtualUser")
 local RunService = game:GetService("RunService")
 local lp = Players.LocalPlayer
-local Powers = {"UpgradeStack","BuyNext","Manage","WalkSpeed","ClickFruitValue"}
+local POWERS = {"UpgradeStack","BuyNext","Manage","WalkSpeed","ClickFruitValue","AutoFruit"}
 
 -- ================================================================
 -- STATE (PRESERVED EXACTLY + harvest)
@@ -1370,7 +1370,7 @@ end)
 -- The game uses a progress bar (x3 → x4) where each call buys ONE level.
 -- We keep buying until InvokeServer stops returning 1.
 -- ================================================================
-local POWER_NAMES = {"UpgradeStack", "BuyNext", "Manage", "WalkSpeed", "ClickFruitValue"}
+local POWER_NAMES = {"UpgradeStack", "BuyNext", "Manage", "WalkSpeed", "ClickFruitValue", "AutoFruit"}
 local powerMaxed = {}   -- powers that returned non-1 twice in a row
 local powerCooldown = {} -- no-money cooldown per power
 local powerTier = {}     -- tracks current tier to detect full upgrades
