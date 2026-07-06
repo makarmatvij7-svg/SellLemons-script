@@ -1200,6 +1200,20 @@ local function getMyTycoon()
     end
 end
 
+local lastTycoonName = nil
+
+local function clearAllCaches()
+    table.clear(purchasedCache)
+    table.clear(upgradeCache)
+    table.clear(harvestCache)
+    table.clear(powerCooldowns)
+    table.clear(remoteBuyCache)
+    table.clear(autoEatCache)
+    table.clear(powerFailStreak)
+    powerIdx = 1
+    legacyPowerIdx = 1
+end
+
 local function rem(myT, name)
     if myT and myT:FindFirstChild("Remotes") then
         return myT.Remotes:FindFirstChild(name)
@@ -1365,39 +1379,16 @@ loop(0.5, function()
 end)
 
 -- ================================================================
--- AUTO UPGRADE POWERS — BUY FULL
--- Cycles each power and SPAMS purchases until the tier upgrades or money runs out.
--- The game uses a progress bar (x3 → x4) where each call buys ONE level.
--- We keep buying until InvokeServer stops returning 1.
+-- AUTO UPGRADE POWERS — BUY FULL (AGGRESSIVE)
+-- Each call buys exactly 1 level. We cycle powers rapidly and buy
+-- as many levels as money allows. No tier detection, no complex logic.
+-- Just pure speed: try → success? buy again. fail? next power.
 -- ================================================================
 local POWER_NAMES = {"UpgradeStack", "BuyNext", "Manage", "WalkSpeed", "ClickFruitValue", "AutoFruit"}
-local powerMaxed = {}   -- powers that returned non-1 twice in a row
-local powerCooldown = {} -- no-money cooldown per power
-local powerTier = {}     -- tracks current tier to detect full upgrades
+local powerFailStreak = {}  -- consecutive fails per power
+local powerIdx = 1        -- current power index for round-robin
 
-local function getPowerTier(myT, name)
-    -- Try to read the current tier from the tycoon's attributes or values
-    -- Different games store this differently; try common paths
-    local stats = myT:FindFirstChild("Stats")
-    if stats then
-        local v = stats:FindFirstChild(name .. "Tier") or stats:FindFirstChild(name)
-        if v then
-            if v:IsA("IntValue") or v:IsA("NumberValue") then return v.Value end
-            if v:IsA("StringValue") then return v.Value end
-        end
-    end
-    local data = myT:FindFirstChild("Data")
-    if data then
-        local v = data:FindFirstChild(name .. "Tier") or data:FindFirstChild(name)
-        if v then
-            if v:IsA("IntValue") or v:IsA("NumberValue") then return v.Value end
-            if v:IsA("StringValue") then return v.Value end
-        end
-    end
-    return nil
-end
-
-loop(0.4, function()
+loop(0.05, function()
     if not S.autopowers then return end
     local myT = getMyTycoon()
     if not myT then return end
@@ -1406,126 +1397,110 @@ loop(0.4, function()
     local r = remotes:FindFirstChild("UpgradePowerLevel")
     if not r then return end
 
-    for _, name in ipairs(POWER_NAMES) do
-        if not S.autopowers then break end
+    -- Round-robin through powers, 1 purchase per iteration
+    -- This is MUCH faster than the old while-loop approach
+    local name = POWER_NAMES[powerIdx]
+    if not name then powerIdx = 1 return end
 
-        -- Skip confirmed-maxed powers
-        if powerMaxed[name] then continue end
+    -- Skip powers with 10+ consecutive fails (likely maxed)
+    if (powerFailStreak[name] or 0) >= 10 then
+        powerIdx = (powerIdx % #POWER_NAMES) + 1
+        return
+    end
 
-        -- Respect no-money cooldown (shorter now since we buy full)
-        if powerCooldown[name] and (tick() - powerCooldown[name]) < 2 then continue end
+    local ok, res = pcall(function()
+        return r:InvokeServer(name)
+    end)
 
-        -- Remember starting tier to detect when a full upgrade completes
-        local startTier = getPowerTier(myT, name)
-        local bought = 0
-        local lastTier = startTier
-
-        -- SPAM BUY until we can't buy anymore for this power
-        while S.autopowers do
-            local ok, res = pcall(function()
-                return r:InvokeServer(name)
-            end)
-
-            if not ok then
-                -- Remote error → stop spamming this power for now
-                powerCooldown[name] = tick()
-                break
-            end
-
-            if res ~= 1 then
-                -- No money or maxed → stop spamming
-                -- Double-check: one more try to distinguish transient fail
-                local ok2, res2 = pcall(function()
-                    return r:InvokeServer(name)
-                end)
-                if ok2 and res2 == 1 then
-                    bought += 1
-                    S.cAutoPowers += 1
-                    -- Continue spamming
-                else
-                    -- Confirmed exhausted
-                    if bought == 0 then
-                        -- Couldn't buy even one → mark for longer cooldown
-                        powerCooldown[name] = tick() + 10
-                    end
-                    break
-                end
-            else
-                -- Success, bought one level
-                bought += 1
-                S.cAutoPowers += 1
-
-                -- Check if tier changed = full upgrade completed
-                local currentTier = getPowerTier(myT, name)
-                if currentTier and lastTier and currentTier ~= lastTier then
-                    -- Tier upgraded! This is a "full" upgrade.
-                    lastTier = currentTier
-                end
-            end
-
-            -- Yield every 5 purchases to prevent frame drops
-            if bought % 5 == 0 then
-                task.wait(0.05)
-            end
-
-            -- Safety break after 1000 purchases (infinite loop guard)
-            if bought >= 1000 then break end
-        end
-
-        -- If we bought nothing this cycle, mark as potentially maxed
-        if bought == 0 then
-            -- Check if this power has been empty for multiple cycles
-            local failCount = (powerMaxed[name .. "_fails"] or 0) + 1
-            powerMaxed[name .. "_fails"] = failCount
-            if failCount >= 5 then
-                powerMaxed[name] = true
-            end
-        else
-            powerMaxed[name .. "_fails"] = 0
-        end
+    if ok and res == 1 then
+        -- Success! Stay on this power, buy again next iteration
+        powerFailStreak[name] = 0
+        S.cAutoPowers += 1
+        -- Don't advance powerIdx — buy same power again
+    else
+        -- Fail (no money or maxed) → move to next power
+        powerFailStreak[name] = (powerFailStreak[name] or 0) + 1
+        powerIdx = (powerIdx % #POWER_NAMES) + 1
     end
 end)
 
 loop(10, function()
     if not S.rebirth then return end
-    local r = rem(getMyTycoon(), "Rebirth")
-    if r then pcall(function() r:InvokeServer() end) end
+    local myT = getMyTycoon()
+    local r = rem(myT, "Rebirth")
+    if r then
+        local ok = pcall(function() r:InvokeServer() end)
+        if ok then
+            clearAllCaches()
+            lastTycoonName = nil
+            harvestEvent = nil
+        end
+    end
 end)
 
 loop(8, function()
     if not S.ascend then return end
-    local r = rem(getMyTycoon(), "Ascend")
-    if r then pcall(function() r:InvokeServer() end) end
+    local myT = getMyTycoon()
+    local r = rem(myT, "Ascend")
+    if r then
+        local ok = pcall(function() r:InvokeServer() end)
+        if ok then
+            clearAllCaches()
+            lastTycoonName = nil
+            harvestEvent = nil
+        end
+    end
 end)
 
 loop(8, function()
     if not S.evolve then return end
-    local r = rem(getMyTycoon(), "Evolve")
-    if r then pcall(function() r:InvokeServer() end) end
+    local myT = getMyTycoon()
+    local r = rem(myT, "Evolve")
+    if r then
+        local ok = pcall(function() r:InvokeServer() end)
+        if ok then
+            clearAllCaches()
+            lastTycoonName = nil
+        end
+    end
 end)
 
 -- Power upgrades — Cobalt-verified path: workspace.Tycoon{N}.Remotes.UpgradePowerLevel
--- Returns 1 on success. We check return value to distinguish maxed vs no-money.
+-- Returns 1 on success. Fast round-robin with fail tracking.
 local powerCooldowns = {}
-loop(0.5, function()
+local lastPowerTycoon = nil
+local legacyPowerIdx = 1
+loop(0.15, function()
     if not S.powers then return end
     local myT = getMyTycoon()
     if not myT then return end
+
+    -- Clear cooldowns when tycoon changes (prestige reset)
+    if lastPowerTycoon and myT.Name ~= lastPowerTycoon then
+        table.clear(powerCooldowns)
+        legacyPowerIdx = 1
+    end
+    lastPowerTycoon = myT.Name
+
     local r = myT:FindFirstChild("Remotes") and myT.Remotes:FindFirstChild("UpgradePowerLevel")
     if not r then return end
-    for _, n in ipairs(POWERS) do
-        if not S.powers then break end
-        local uid = n
-        if powerCooldowns[uid] and (tick() - powerCooldowns[uid]) < 3 then continue end
-        local ok, res = pcall(function() return r:InvokeServer(n) end)
-        -- res == 1 means success; nil/false means maxed or no money
-        if ok and res == 1 then
-            S.cUp += 1
-            powerCooldowns[uid] = nil
-        else
-            -- Cooldown to prevent spam, but retry later (might be no-money, not maxed)
-            powerCooldowns[uid] = tick()
-        end
+
+    local n = POWERS[legacyPowerIdx]
+    if not n then legacyPowerIdx = 1 return end
+
+    if powerCooldowns[n] and (tick() - powerCooldowns[n]) < 2 then
+        legacyPowerIdx = (legacyPowerIdx % #POWERS) + 1
+        return
+    end
+
+    local ok, res = pcall(function() return r:InvokeServer(n) end)
+    if ok and res == 1 then
+        S.cUp += 1
+        powerCooldowns[n] = nil
+        -- Stay on this power, buy again
+    else
+        powerCooldowns[n] = tick()
+        legacyPowerIdx = (legacyPowerIdx % #POWERS) + 1
     end
 end)
 
@@ -1722,8 +1697,18 @@ end)
 -- ================================================================
 loop(0.4, function()
     local myT = getMyTycoon()
+
+    -- Detect tycoon change (rebirth/ascend/evolve destroys old tycoon)
+    local currentName = myT and myT.Name or nil
+    if currentName ~= lastTycoonName then
+        lastTycoonName = currentName
+        clearAllCaches()
+        -- Also clear the harvest remote cache since tycoon changed
+        harvestEvent = nil
+    end
+
     local cash = lp:FindFirstChild("leaderstats") and lp.leaderstats:FindFirstChild("Cash") and lp.leaderstats.Cash.Value or "?"
-    cashL.Text = "💰 " .. tostring(cash) .. "   •   " .. (myT and myT.Name or "?")
+    cashL.Text = "💰 " .. tostring(cash) .. "   •   " .. (currentName or "?")
     stats.Text = string.format("Upgrades    %d\nBuys        %d\nDrops       %d\nHarvests    %d\nPowers      %d\nRemoteBuy   %d\nAutoEat     %d\nRaces       %d", S.cUp, S.cBuy, S.cDrop, S.cHarvest, S.cAutoPowers, S.cRemoteBuy, S.cAutoEat, S.cMini)
 end)
 
@@ -1742,8 +1727,12 @@ _G.LemonFarm = {
         table.clear(powerCooldowns)
         table.clear(remoteBuyCache)
         table.clear(autoEatCache)
-        table.clear(powerMaxed)
-        table.clear(powerCooldown)
+        table.clear(powerFailStreak)
+        lastTycoonName = nil
+        lastPowerTycoon = nil
+        harvestEvent = nil
+        powerIdx = 1
+        legacyPowerIdx = 1
         if orbConn then orbConn:Disconnect() end
         if hConn then hConn:Disconnect() end
         if pulseConn then pulseConn:Disconnect() end
