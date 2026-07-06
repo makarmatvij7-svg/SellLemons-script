@@ -19,7 +19,7 @@ local RS = game:GetService("ReplicatedStorage")
 local VirtualUser = game:GetService("VirtualUser")
 local RunService = game:GetService("RunService")
 local lp = Players.LocalPlayer
-local POWERS = {"UpgradeStack","BuyNext","Manage","WalkSpeed","ClickFruitValue"}
+local Powers = {"UpgradeStack","BuyNext","Manage","WalkSpeed","ClickFruitValue"}
 
 -- ================================================================
 -- STATE (PRESERVED EXACTLY + harvest)
