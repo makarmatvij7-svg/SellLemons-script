@@ -1212,28 +1212,51 @@ local function loop(iv, fn)
     end)
 end
 
+-- Upgrade cache to prevent spam on maxed earners
+local upgradeCache = {}
 loop(0.25, function()
     if not S.upgrade then return end
     local myT = getMyTycoon()
     if not myT then return end
     for _, e in ipairs(CollectionService:GetTagged("Tycoon.Earner")) do
         if not S.upgrade then break end
-        if e:IsDescendantOf(myT) then
-            local r = e:FindFirstChild("Upgrade")
-            if r and r:IsA("RemoteFunction") then
-                local n = 1
-                while alive and S.upgrade and n <= 1e6 do
-                    if pcall(function() return r:InvokeServer(n) end) then
-                        S.cUp += n
-                        n *= 2
-                    else
-                        break
-                    end
-                end
+        if not e:IsDescendantOf(myT) then continue end
+
+        local uid = tostring(e)
+        local r = e:FindFirstChild("Upgrade")
+        if not (r and r:IsA("RemoteFunction")) then continue end
+
+        -- Skip if this earner was marked as maxed recently
+        if upgradeCache[uid] and (tick() - upgradeCache[uid]) < 3 then continue end
+
+        local n = 1
+        local anySuccess = false
+        while alive and S.upgrade and n <= 1e6 do
+            local ok = pcall(function() return r:InvokeServer(n) end)
+            if ok then
+                S.cUp += n
+                n *= 2
+                anySuccess = true
+            else
+                break
             end
+        end
+        -- If even n=1 failed, mark as maxed for a few seconds
+        if not anySuccess then
+            upgradeCache[uid] = tick()
         end
     end
 end)
+
+-- Track recently-processed purchases to avoid spamming "already purchased" errors
+local purchasedCache = {}
+local function isPurchaseReady(p)
+    if not p or not p.Parent then return false end
+    if p:GetAttribute("Purchased") then return false end
+    if not p:GetAttribute("Enabled") then return false end
+    if not p:GetAttribute("Shown") then return false end
+    return true
+end
 
 loop(0.35, function()
     if not S.buy then return end
@@ -1241,12 +1264,21 @@ loop(0.35, function()
     if not myT then return end
     for _, p in ipairs(CollectionService:GetTagged("Tycoon.Purchase")) do
         if not S.buy then break end
-        if p:IsDescendantOf(myT) and p:GetAttribute("Enabled") and p:GetAttribute("Shown") and not p:GetAttribute("Purchased") then
-            local r = p:FindFirstChild("Purchase")
-            if r and r:IsA("RemoteFunction") then
-                pcall(function() r:InvokeServer(false) end)
-                if p:GetAttribute("Purchased") then S.cBuy += 1 end
-            end
+        if not p:IsDescendantOf(myT) then continue end
+        if not isPurchaseReady(p) then continue end
+
+        local uid = tostring(p)
+        local lastTry = purchasedCache[uid]
+        if lastTry and (tick() - lastTry) < 2 then continue end
+
+        local r = p:FindFirstChild("Purchase")
+        if not (r and r:IsA("RemoteFunction")) then continue end
+
+        purchasedCache[uid] = tick()
+        local ok = pcall(function() r:InvokeServer(false) end)
+        if ok and p:GetAttribute("Purchased") then
+            S.cBuy += 1
+            purchasedCache[uid] = nil
         end
     end
 end)
@@ -1294,6 +1326,8 @@ local function getHarvestRemote()
     return harvestEvent
 end
 
+-- Harvest cache to avoid spamming empty/unready plots
+local harvestCache = {}
 loop(0.5, function()
     if not S.harvest then return end
     local myT = getMyTycoon()
@@ -1302,23 +1336,27 @@ loop(0.5, function()
     local hev = getHarvestRemote()
     if not hev then return end
 
-    -- Find the Orchard folder inside the tycoon
     local orchard = myT:FindFirstChild("Orchard")
     if not orchard then return end
 
     local plots = orchard:FindFirstChild("Plots")
     if not plots then return end
 
-    -- Iterate every plot and harvest
     for _, plot in ipairs(plots:GetChildren()) do
         if not S.harvest then break end
-        if plot:IsA("BasePart") or plot:IsA("Model") or plot:IsA("Folder") then
-            local ok, res = pcall(function()
-                return hev:InvokeServer(plot)
-            end)
-            if ok then
-                S.cHarvest += 1
-            end
+        if not (plot:IsA("BasePart") or plot:IsA("Model") or plot:IsA("Folder")) then continue end
+
+        local uid = tostring(plot)
+        if harvestCache[uid] and (tick() - harvestCache[uid]) < 1 then continue end
+
+        local ok = pcall(function()
+            return hev:InvokeServer(plot)
+        end)
+        if ok then
+            S.cHarvest += 1
+            harvestCache[uid] = nil
+        else
+            harvestCache[uid] = tick()
         end
     end
 end)
@@ -1341,13 +1379,20 @@ loop(8, function()
     if r then pcall(function() r:InvokeServer() end) end
 end)
 
+-- Power upgrade cache to avoid spam on maxed powers
+local powerCache = {}
 loop(0.5, function()
     if not S.powers then return end
     local r = rem(getMyTycoon(), "UpgradePowerLevel")
     if not r then return end
     for _, n in ipairs(POWERS) do
         if not S.powers then break end
-        pcall(function() r:InvokeServer(n) end)
+        local uid = n
+        if powerCache[uid] and (tick() - powerCache[uid]) < 5 then continue end
+        local ok = pcall(function() r:InvokeServer(n) end)
+        if not ok then
+            powerCache[uid] = tick()
+        end
     end
 end)
 
@@ -1357,6 +1402,7 @@ loop(8, function()
     local r = rem(myT, "WakeIncomeStream")
     if not r then return end
     for _, e in ipairs(CollectionService:GetTagged("Tycoon.Earner")) do
+        if not S.wake then break end
         if e:IsDescendantOf(myT) then
             pcall(function() r:InvokeServer(e.Name) end)
         end
