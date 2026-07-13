@@ -1,14 +1,3 @@
---==================================================================
--- 🍋 LEMON HUB MAXIMUM — The Final Form
--- Every auto-farm loop, remote call, and state toggle preserved.
--- Visual layer rebuilt with particle engine, mesh gradients, spring
--- physics, ripple effects, cursor trails, and ambient lighting.
--- RightShift hides, — minimizes, ✕ closes.
--- _G.LemonFarm.Destroy() removes everything.
---
--- INTEGRATED: Cobalt-generated OrchardPlot.Harvest auto-harvest
--- for ALL tycoon orchard plots.
---==================================================================
 if _G.LemonFarm and _G.LemonFarm.Destroy then pcall(_G.LemonFarm.Destroy) end
 
 local Players = game:GetService("Players")
@@ -21,20 +10,12 @@ local RunService = game:GetService("RunService")
 local lp = Players.LocalPlayer
 local POWERS = {"UpgradeStack","BuyNext","Manage","WalkSpeed","ClickFruitValue","AutoFruit"}
 
--- ================================================================
--- STATE (PRESERVED EXACTLY + harvest)
--- ================================================================
 local S = {
     upgrade=false, buy=false, drops=false, click=false,
     rebirth=false, ascend=false, evolve=false,
     powers=false, wake=false, offers=false, offline=false,
-    mini=false, antiafk=false, harvest=false, remotebuy=false, autoeat=false, autopowers=false, perfmode=false,
-    cUp=0, cBuy=0, cDrop=0, cMini=0, cHarvest=0, cRemoteBuy=0, cAutoEat=0, cAutoPowers=0
 }
 
--- ================================================================
--- DESIGN SYSTEM — Maximum Overdrive Palette
--- ================================================================
 local PAL = {
     void        = Color3.fromRGB(6, 7, 10),
     bg          = Color3.fromRGB(12, 14, 20),
@@ -56,9 +37,6 @@ local PAL = {
     ledOn       = Color3.fromRGB(170, 240, 100),
 }
 
--- ================================================================
--- UTILITY FACTORY
--- ================================================================
 local function corner(p, r)
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, r)
@@ -130,9 +108,6 @@ local function innerGlow(p, col, trans)
     return g
 end
 
--- ================================================================
--- ROOT GUI WITH ENTRANCE ANIMATION
--- ================================================================
 local parent = (gethui and gethui()) or game:GetService("CoreGui")
 local gui = Instance.new("ScreenGui")
 gui.Name = "LemonHubMax"
@@ -141,7 +116,6 @@ gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.IgnoreGuiInset = true
 gui.Parent = parent
 
--- Ambient background orbs (behind everything)
 local ambient = Instance.new("Frame")
 ambient.Size = UDim2.new(1, 0, 1, 0)
 ambient.BackgroundTransparency = 1
@@ -178,13 +152,10 @@ orb3.ZIndex = 1
 orb3.Parent = ambient
 corner(orb3, 125)
 
--- Parallax state (mouse-driven depth offset, smoothed)
 local parX, parY = 0, 0
 local parTX, parTY = 0, 0
 
--- Animate orbs (base drift + parallax layers at different depths)
 local orbTime = 0
--- Orb parallax: 30fps throttle to reduce CPU load
 local orbLastUpdate = 0
 local orbConn = RunService.Heartbeat:Connect(function(dt)
     local now = tick()
@@ -192,11 +163,9 @@ local orbConn = RunService.Heartbeat:Connect(function(dt)
     orbLastUpdate = now
     orbTime += dt
 
-    -- Smooth the parallax target toward the raw mouse offset (spring-like lag)
     parX += (parTX - parX) * math.min(dt * 6, 1)
     parY += (parTY - parY) * math.min(dt * 6, 1)
 
-    -- Each orb sits at a different "depth" so they drift at different rates
     orb1.Position = UDim2.fromScale(
         0.2 + math.sin(orbTime*0.3)*0.08 + parX * 0.020,
         0.3 + math.cos(orbTime*0.2)*0.06 + parY * 0.020
@@ -211,7 +180,6 @@ local orbConn = RunService.Heartbeat:Connect(function(dt)
     )
 end)
 
--- Main panel
 local main = Instance.new("Frame")
 main.Name = "Main"
 main.Size = UDim2.fromOffset(560, 400)
@@ -225,7 +193,6 @@ main.ZIndex = 10
 main.Parent = gui
 corner(main, 24)
 
--- Entrance animation
 main.Size = UDim2.fromOffset(0, 0)
 main.BackgroundTransparency = 1
 TweenService:Create(main, TweenInfo.new(0.75, Enum.EasingStyle.Back, Enum.EasingDirection.Out, 0, false, 0.05), {
@@ -233,16 +200,13 @@ TweenService:Create(main, TweenInfo.new(0.75, Enum.EasingStyle.Back, Enum.Easing
     BackgroundTransparency = 0.1
 }):Play()
 
--- Multi-layer border glow
 local glow1 = stroke(main, PAL.accent, 2.5, 0.85)
 local glow1g = gradient(glow1, ColorSequence.new(PAL.accent, PAL.accent2), 0)
 local glow2 = stroke(main, PAL.accent3, 1.5, 0.9)
 local glow2g = gradient(glow2, ColorSequence.new(PAL.accent3, PAL.accent), 90)
 
--- Deep shadow
 shadow(main, 8, 40, 0.6)
 
--- Frosted glass layers (fake backdrop blur via stacked soft-edge tints)
 local frost1 = Instance.new("Frame")
 frost1.Size = UDim2.new(1, 0, 1, 0)
 frost1.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
@@ -262,7 +226,6 @@ frost1g.Transparency = NumberSequence.new{
     NumberSequenceKeypoint.new(1, 1)
 }
 
--- Edge highlight sliver (top glass rim catching light)
 local rim = Instance.new("Frame")
 rim.Size = UDim2.new(1, -4, 0, 1)
 rim.Position = UDim2.fromOffset(2, 1)
@@ -277,16 +240,12 @@ gradient(rim, ColorSequence.new{
     ColorSequenceKeypoint.new(1, Color3.new(1,1,1))
 }, 0)
 
--- Particle canvas
 local particleCanvas = Instance.new("Frame")
 particleCanvas.Size = UDim2.new(1, 0, 1, 0)
 particleCanvas.BackgroundTransparency = 1
 particleCanvas.ZIndex = 2
 particleCanvas.Parent = main
 
--- ================================================================
--- HEADER — Living Mesh Gradient
--- ================================================================
 local header = Instance.new("Frame")
 header.Name = "Header"
 header.Size = UDim2.new(1, 0, 0, 72)
@@ -306,7 +265,6 @@ hfix.BorderSizePixel = 0
 hfix.ZIndex = 20
 hfix.Parent = header
 
--- Layer 1: Slow rotating warm gradient
 local hgrad1 = Instance.new("Frame")
 hgrad1.Size = UDim2.new(1, 0, 1, 0)
 hgrad1.BackgroundTransparency = 1
@@ -319,7 +277,6 @@ local hg1 = gradient(hgrad1, ColorSequence.new{
 }, 0)
 hg1.Transparency = NumberSequence.new(0.88, 0.95)
 
--- Layer 2: Fast rotating cool gradient
 local hgrad2 = Instance.new("Frame")
 hgrad2.Size = UDim2.new(1, 0, 1, 0)
 hgrad2.BackgroundTransparency = 1
@@ -332,7 +289,6 @@ local hg2 = gradient(hgrad2, ColorSequence.new{
 }, 45)
 hg2.Transparency = NumberSequence.new(0.9, 0.96)
 
--- Layer 3: Radial accent burst
 local hgrad3 = Instance.new("Frame")
 hgrad3.Size = UDim2.new(1, 0, 1, 0)
 hgrad3.BackgroundTransparency = 1
@@ -344,9 +300,7 @@ local hg3 = gradient(hgrad3, ColorSequence.new{
 }, 135)
 hg3.Transparency = NumberSequence.new(0.85, 0.98)
 
--- Animate header gradients
 local hTime = 0
--- Header gradients: 30fps throttle
 local hLastUpdate = 0
 local hConn = RunService.Heartbeat:Connect(function(dt)
     local now = tick()
@@ -360,7 +314,6 @@ local hConn = RunService.Heartbeat:Connect(function(dt)
     hg2.Offset = Vector2.new(-parX * 0.02, -parY * 0.03)
 end)
 
--- Logo orb with pulse
 local logoOrb = Instance.new("Frame")
 logoOrb.Size = UDim2.fromOffset(48, 48)
 logoOrb.Position = UDim2.fromOffset(18, 12)
@@ -380,8 +333,6 @@ logoPulse.ZIndex = 21
 logoPulse.Parent = logoOrb
 corner(logoPulse, 14)
 
--- Pulse animation
--- Logo pulse: 30fps throttle
 local pulseTime = 0
 local pulseLastUpdate = 0
 local pulseConn = RunService.Heartbeat:Connect(function(dt)
@@ -404,7 +355,6 @@ logoIcon.TextSize = 26
 logoIcon.ZIndex = 23
 logoIcon.Parent = logoOrb
 
--- Title with gradient
 local titleC = Instance.new("TextLabel")
 titleC.Size = UDim2.fromOffset(220, 26)
 titleC.Position = UDim2.fromOffset(76, 14)
@@ -418,7 +368,6 @@ titleC.ZIndex = 22
 titleC.Parent = header
 gradient(titleC, ColorSequence.new(PAL.accent2, PAL.accent), 0)
 
--- Cash label
 local cashL = Instance.new("TextLabel")
 cashL.Size = UDim2.fromOffset(340, 18)
 cashL.Position = UDim2.fromOffset(76, 40)
@@ -431,7 +380,6 @@ cashL.TextXAlignment = Enum.TextXAlignment.Left
 cashL.ZIndex = 22
 cashL.Parent = header
 
--- Window controls with micro-interactions
 local function winBtn(txt, x, col, rotAnim)
     local b = Instance.new("TextButton")
     b.Size = UDim2.fromOffset(34, 34)
@@ -471,9 +419,6 @@ end
 local closeB = winBtn("✕", -48, PAL.accentHot, true)
 local minB   = winBtn("—", -90)
 
--- ================================================================
--- BODY
--- ================================================================
 local body = Instance.new("Frame")
 body.Size = UDim2.new(1, 0, 1, -72)
 body.Position = UDim2.fromOffset(0, 72)
@@ -481,7 +426,6 @@ body.BackgroundTransparency = 1
 body.ZIndex = 10
 body.Parent = main
 
--- Sidebar with glass depth
 local side = Instance.new("Frame")
 side.Size = UDim2.new(0, 160, 1, 0)
 side.BackgroundColor3 = PAL.bgGlass
@@ -494,7 +438,6 @@ local sl = Instance.new("UIListLayout", side)
 sl.Padding = UDim.new(0, 8)
 sl.SortOrder = Enum.SortOrder.LayoutOrder
 
--- Content area
 local content = Instance.new("Frame")
 content.Size = UDim2.new(1, -160, 1, 0)
 content.Position = UDim2.fromOffset(160, 0)
@@ -502,7 +445,6 @@ content.BackgroundTransparency = 1
 content.ZIndex = 11
 content.Parent = body
 
--- Custom scrollbar track
 local scrollTrack = Instance.new("Frame")
 scrollTrack.Size = UDim2.new(0, 6, 1, -20)
 scrollTrack.Position = UDim2.new(1, -10, 0, 10)
@@ -513,9 +455,6 @@ scrollTrack.ZIndex = 15
 scrollTrack.Parent = content
 corner(scrollTrack, 3)
 
--- ================================================================
--- CURSOR GLOW TRAIL
--- ================================================================
 local cursorGlow = Instance.new("Frame")
 cursorGlow.Size = UDim2.fromOffset(20, 20)
 cursorGlow.BackgroundColor3 = PAL.accent
@@ -526,7 +465,6 @@ cursorGlow.Parent = main
 corner(cursorGlow, 10)
 shadow(cursorGlow, 0, 12, 0.7, PAL.accent)
 
--- Cursor tracking: direct position assignment (no tween) + 30fps throttle
 local cursorLastUpdate = 0
 local cursorConn = RunService.Heartbeat:Connect(function()
     local now = tick()
@@ -552,9 +490,6 @@ local cursorConn = RunService.Heartbeat:Connect(function()
     end
 end)
 
--- ================================================================
--- TABS SYSTEM — With sliding indicator & staggered reveals
--- ================================================================
 local tabs = {}
 local pages = {}
 local activeTab = nil
@@ -570,7 +505,6 @@ local function selectTab(name)
         TweenService:Create(m.lbl, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {TextColor3 = on and PAL.txt or PAL.txtDim}):Play()
         TweenService:Create(m.icon, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {TextColor3 = on and PAL.accent or PAL.txtDim}):Play()
 
-        -- Slide indicator
         if on then
             TweenService:Create(m.accent, TweenInfo.new(0.25, Enum.EasingStyle.Back), {
                 Position = UDim2.fromOffset(8, 12),
@@ -594,7 +528,6 @@ local function selectTab(name)
             TweenService:Create(p, TweenInfo.new(0.45, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
                 Position = UDim2.fromOffset(0, 0)
             }):Play()
-            -- Stagger children in with a gentle settle
             for i, child in ipairs(p:GetChildren()) do
                 if child:IsA("GuiObject") and child ~= p:FindFirstChildOfClass("UIListLayout") and child ~= p:FindFirstChildOfClass("UIPadding") then
                     local origTrans = child.BackgroundTransparency
@@ -706,9 +639,6 @@ local function makeTab(name, icon)
     return page
 end
 
--- ================================================================
--- TOGGLE COMPONENT — Magnetic Spring + LED + Ripple + Neumorphism
--- ================================================================
 local rowOrder = 0
 local function makeToggle(page, label, desc, key)
     rowOrder += 1
@@ -723,13 +653,11 @@ local function makeToggle(page, label, desc, key)
     corner(row, 16)
     stroke(row, PAL.border, 1, 0.3)
 
-    -- Neumorphic shadow layers
     local neuUp = shadow(row, -2, 8, 0.7)
     neuUp.ImageColor3 = Color3.fromRGB(255, 255, 255)
     neuUp.ImageTransparency = 0.85
     local neuDown = shadow(row, 2, 8, 0.7)
 
-    -- Hover with depth shift + lift
     local rowBasePos = row.Position
     row.MouseEnter:Connect(function()
         TweenService:Create(row, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -748,7 +676,6 @@ local function makeToggle(page, label, desc, key)
         TweenService:Create(neuDown, TweenInfo.new(0.2), {ImageTransparency = 0.7}):Play()
     end)
 
-    -- LED status dot
     local led = Instance.new("Frame")
     led.Size = UDim2.fromOffset(8, 8)
     led.Position = UDim2.fromOffset(14, 28)
@@ -783,7 +710,6 @@ local function makeToggle(page, label, desc, key)
     d.ZIndex = 14
     d.Parent = row
 
-    -- Switch track with inner glow
     local sw = Instance.new("Frame")
     sw.Size = UDim2.fromOffset(52, 28)
     sw.Position = UDim2.new(1, -68, 0.5, -14)
@@ -795,7 +721,6 @@ local function makeToggle(page, label, desc, key)
     stroke(sw, PAL.border, 1, 0.4)
     innerGlow(sw, PAL.accent, 0.85)
 
-    -- Magnetic knob
     local knob = Instance.new("Frame")
     knob.Size = UDim2.fromOffset(22, 22)
     knob.Position = UDim2.fromOffset(3, 3)
@@ -806,7 +731,6 @@ local function makeToggle(page, label, desc, key)
     corner(knob, 11)
     shadow(knob, 0, 8, 0.6)
 
-    -- Knob bloom
     local bloom = Instance.new("ImageLabel")
     bloom.Size = UDim2.new(1, 20, 1, 20)
     bloom.Position = UDim2.fromOffset(-10, -10)
@@ -819,7 +743,6 @@ local function makeToggle(page, label, desc, key)
     bloom.ZIndex = 15
     bloom.Parent = knob
 
-    -- Hit area with ripple
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.fromScale(1, 1)
     btn.BackgroundTransparency = 1
@@ -833,7 +756,6 @@ local function makeToggle(page, label, desc, key)
             BackgroundColor3 = on and PAL.accent or PAL.bgGlass2
         }):Play()
 
-        -- Spring: overshoot past target, squash on arrival, settle back to normal
         local targetPos = on and UDim2.fromOffset(27, 3) or UDim2.fromOffset(3, 3)
         TweenService:Create(knob, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out, 0, false, 0), {
             Position = targetPos,
@@ -864,7 +786,6 @@ local function makeToggle(page, label, desc, key)
     btn.MouseButton1Click:Connect(function()
         S[key] = not S[key]
         render()
-        -- Ripple
         local mx = btn.AbsoluteSize.X / 2
         local my = btn.AbsoluteSize.Y / 2
         local rip = Instance.new("Frame")
@@ -883,7 +804,6 @@ local function makeToggle(page, label, desc, key)
         }):Play()
         task.delay(0.75, function() rip:Destroy() end)
 
-        -- Flash
         local flash = Instance.new("Frame")
         flash.Size = UDim2.new(1, 0, 1, 0)
         flash.BackgroundColor3 = PAL.accent
@@ -898,9 +818,6 @@ local function makeToggle(page, label, desc, key)
     render()
 end
 
--- ================================================================
--- ANIMATED DIVIDER
--- ================================================================
 local function makeDivider(page)
     rowOrder += 1
     local f = Instance.new("Frame")
@@ -926,7 +843,6 @@ local function makeDivider(page)
         g.Offset = Vector2.new(math.sin(divTime * 2) * 0.3, 0)
     end)
 
-    -- Cleanup connection when destroyed
     f.Destroying:Connect(function()
         if divConn then divConn:Disconnect() end
     end)
@@ -950,16 +866,12 @@ local function sectionInfo(page, text)
     l.Parent = page
 end
 
--- ================================================================
--- BUILD TABS
--- ================================================================
 local pFarm  = makeTab("Farm", "🌱")
 makeToggle(pFarm, "Auto Upgrade", "Bulk-upgrades all income sources", "upgrade")
 makeToggle(pFarm, "Auto Buy", "Buys unlocked tycoon buttons", "buy")
 makeToggle(pFarm, "Auto Collect Drops", "Instantly grabs cash drops", "drops")
 makeToggle(pFarm, "Auto Click Fruit", "Auto-clicks the lemon trees", "click")
 makeToggle(pFarm, "Auto Harvest", "Harvests ALL orchard plots via remote", "harvest")
-makeToggle(pFarm, "Auto Upgrade Powers", "Cycles all power upgrades via verified remote", "autopowers")
 makeDivider(pFarm)
 
 local pPrest = makeTab("Prestige", "🔼")
@@ -984,7 +896,6 @@ makeToggle(pMisc, "Anti-AFK", "Never get idle-kicked", "antiafk")
 makeToggle(pMisc, "Performance Mode", "Reduces visual effects to boost FPS", "perfmode")
 makeDivider(pMisc)
 
--- Stats card with rolling counters
 local statsCard = Instance.new("Frame")
 statsCard.Size = UDim2.new(1, 0, 0, 120)
 statsCard.BackgroundColor3 = PAL.bgGlass2
@@ -1026,9 +937,6 @@ stats.Parent = statsCard
 sectionInfo(pMisc, "<font color=\'#8A8F9C\'>RightShift hides the menu  •  drag the header to move</font>")
 selectTab("Farm")
 
--- ================================================================
--- PARTICLE ENGINE — Full system with pools & trajectories
--- ================================================================
 local particlePool = {}
 local activeParticles = {}
 local particleTypes = {"🍋", "✦", "•", "◆", "◇", "✧"}
@@ -1068,7 +976,6 @@ local function spawnParticle()
     table.insert(activeParticles, {obj = p, startX = startX, startY = startY, speed = speed, amp = amp, freq = freq, rotSpeed = rotSpeed, scalePulse = scalePulse, life = 0, maxLife = maxLife})
 end
 
--- Particle physics: 30fps throttle
 local particleLastUpdate = 0
 local particleConn = RunService.Heartbeat:Connect(function(dt)
     local now = tick()
@@ -1106,7 +1013,6 @@ local particleSpawner = task.spawn(function()
     end
 end)
 
--- Performance mode: disable heavy visual effects
 local perfConn = nil
 local function updatePerfMode()
     if S.perfmode then
@@ -1116,7 +1022,6 @@ local function updatePerfMode()
         if not perfConn then
             perfConn = RunService.Heartbeat:Connect(function()
                 if not S.perfmode then return end
-                -- Minimal orb movement in perf mode
                 orb1.Position = UDim2.fromScale(0.2, 0.3)
                 orb2.Position = UDim2.fromScale(0.7, 0.6)
                 orb3.Position = UDim2.fromScale(0.5, 0.2)
@@ -1132,15 +1037,10 @@ local function updatePerfMode()
     end
 end
 
--- Watch for perf mode toggle
 local perfCheckConn = RunService.Heartbeat:Connect(function()
     updatePerfMode()
 end)
 
--- ================================================================
--- BORDER GLOW ANIMATION
--- ================================================================
--- Border glow: 30fps throttle
 local glowTime = 0
 local glowLastUpdate = 0
 local glowConn = RunService.Heartbeat:Connect(function(dt)
@@ -1154,9 +1054,6 @@ local glowConn = RunService.Heartbeat:Connect(function(dt)
     glow2.Transparency = 0.85 + math.cos(glowTime * 2.5) * 0.1
 end)
 
--- ================================================================
--- DRAG SYSTEM
--- ================================================================
 do
     local drag, sp, si
     header.InputBegan:Connect(function(i)
@@ -1177,9 +1074,6 @@ do
     end)
 end
 
--- ================================================================
--- MINIMIZE / CLOSE / HOTKEY
--- ================================================================
 local minimized = false
 local originalSize = UDim2.fromOffset(560, 400)
 
@@ -1246,9 +1140,6 @@ closeB.MouseButton1Click:Connect(function()
     end)
 end)
 
--- ================================================================
--- FUNCTIONAL LOOPS (PRESERVED EXACTLY + HARVEST)
--- ================================================================
 local alive = true
 local function getMyTycoon()
     for _, f in ipairs(workspace:GetChildren()) do
@@ -1268,8 +1159,6 @@ local function clearAllCaches()
     table.clear(powerCooldowns)
     table.clear(remoteBuyCache)
     table.clear(autoEatCache)
-    table.clear(powerFailStreak)
-    powerIdx = 1
     legacyPowerIdx = 1
 end
 
@@ -1288,7 +1177,6 @@ local function loop(iv, fn)
     end)
 end
 
--- Upgrade cache to prevent spam on maxed earners
 local upgradeCache = {}
 loop(0.25, function()
     if not S.upgrade then return end
@@ -1302,7 +1190,6 @@ loop(0.25, function()
         local r = e:FindFirstChild("Upgrade")
         if not (r and r:IsA("RemoteFunction")) then continue end
 
-        -- Skip if this earner was marked as maxed recently
         if upgradeCache[uid] and (tick() - upgradeCache[uid]) < 3 then continue end
 
         local n = 1
@@ -1317,14 +1204,12 @@ loop(0.25, function()
                 break
             end
         end
-        -- If even n=1 failed, mark as maxed for a few seconds
         if not anySuccess then
             upgradeCache[uid] = tick()
         end
     end
 end)
 
--- Track recently-processed purchases to avoid spamming "already purchased" errors
 local purchasedCache = {}
 local function isPurchaseReady(p)
     if not p or not p.Parent then return false end
@@ -1385,12 +1270,6 @@ loop(0.2, function()
     end
 end)
 
--- ================================================================
--- AUTO HARVEST — Cobalt-Generated Remote Integration
--- Iterates ALL orchard plots in the user's tycoon and harvests them
--- via the ReplicatedStorage.Core.RemoteRequest.OrchardPlot.Harvest
--- remote function.
--- ================================================================
 local harvestEvent = nil
 local function getHarvestRemote()
     if harvestEvent then return harvestEvent end
@@ -1402,7 +1281,6 @@ local function getHarvestRemote()
     return harvestEvent
 end
 
--- Harvest cache to avoid spamming empty/unready plots
 local harvestCache = {}
 loop(0.5, function()
     if not S.harvest then return end
@@ -1433,56 +1311,6 @@ loop(0.5, function()
             harvestCache[uid] = nil
         else
             harvestCache[uid] = tick()
-        end
-    end
-end)
-
--- ================================================================
--- AUTO UPGRADE POWERS — BUY FULL (AGGRESSIVE)
--- Each call buys exactly 1 level. We cycle powers rapidly and buy
--- as many levels as money allows. No tier detection, no complex logic.
--- Just pure speed: try → success? buy again. fail? next power.
--- ================================================================
-local POWER_NAMES = {"UpgradeStack", "BuyNext", "Manage", "WalkSpeed", "ClickFruitValue", "AutoFruit"}
-local powerFailStreak = {}  -- consecutive fails per power
-local powerIdx = 1        -- current power index for round-robin
-
-loop(0.05, function()
-    if not S.autopowers then return end
-    local myT = getMyTycoon()
-    if not myT then return end
-    local remotes = myT:FindFirstChild("Remotes")
-    if not remotes then return end
-    local r = remotes:FindFirstChild("UpgradePowerLevel")
-    if not r then return end
-
-    -- Batch multiple purchases per loop iteration (more efficient)
-    -- but yield every few to prevent starving other threads
-    local batchCount = 0
-    while S.autopowers and batchCount < 5 do
-        local name = POWER_NAMES[powerIdx]
-        if not name then powerIdx = 1 break end
-
-        -- Skip powers with 10+ consecutive fails (likely maxed)
-        if (powerFailStreak[name] or 0) >= 10 then
-            powerIdx = (powerIdx % #POWER_NAMES) + 1
-            batchCount += 1
-            continue
-        end
-
-        local ok, res = pcall(function()
-            return r:InvokeServer(name)
-        end)
-
-        if ok and res == 1 then
-            powerFailStreak[name] = 0
-            S.cAutoPowers += 1
-            batchCount += 1
-            -- Stay on same power
-        else
-            powerFailStreak[name] = (powerFailStreak[name] or 0) + 1
-            powerIdx = (powerIdx % #POWER_NAMES) + 1
-            batchCount += 1
         end
     end
 end)
@@ -1528,8 +1356,6 @@ loop(8, function()
     end
 end)
 
--- Power upgrades — Cobalt-verified path: workspace.Tycoon{N}.Remotes.UpgradePowerLevel
--- Returns 1 on success. Fast round-robin with fail tracking.
 local powerCooldowns = {}
 local lastPowerTycoon = nil
 local legacyPowerIdx = 1
@@ -1538,7 +1364,6 @@ loop(0.15, function()
     local myT = getMyTycoon()
     if not myT then return end
 
-    -- Clear cooldowns when tycoon changes (prestige reset)
     if lastPowerTycoon and myT.Name ~= lastPowerTycoon then
         table.clear(powerCooldowns)
         legacyPowerIdx = 1
@@ -1560,7 +1385,6 @@ loop(0.15, function()
     if ok and res == 1 then
         S.cUp += 1
         powerCooldowns[n] = nil
-        -- Stay on this power, buy again
     else
         powerCooldowns[n] = tick()
         legacyPowerIdx = (legacyPowerIdx % #POWERS) + 1
@@ -1615,10 +1439,6 @@ loop(5, function()
     end
 end)
 
--- ================================================================
--- REMOTE BUY — Discovers and fires the remote-buy remote
--- Common names: BuyNext, RemoteBuy, PurchaseNext, RemotePurchase
--- ================================================================
 local remoteBuyNames = {"BuyNext", "RemoteBuy", "PurchaseNext", "RemotePurchase", "BuyRemote"}
 local remoteBuyCache = {}
 loop(1, function()
@@ -1646,10 +1466,6 @@ loop(1, function()
     end
 end)
 
--- ================================================================
--- AUTO EATER — Discovers and fires auto-eat / eat-fruit remotes
--- Tries tycoon remotes first, then orchard remotes, then RS.Core
--- ================================================================
 local autoEatNames = {"EatFruit", "AutoEat", "ConsumeFruit", "EatOrchardFruit"}
 local autoEatCache = {}
 loop(2, function()
@@ -1657,7 +1473,6 @@ loop(2, function()
     local myT = getMyTycoon()
     if not myT then return end
 
-    -- Try tycoon remotes first
     local remotes = myT:FindFirstChild("Remotes")
     if remotes then
         for _, name in ipairs(autoEatNames) do
@@ -1684,7 +1499,6 @@ loop(2, function()
         end
     end
 
-    -- Try orchard plot remotes
     local orchard = myT:FindFirstChild("Orchard")
     if orchard then
         local plots = orchard:FindFirstChild("Plots")
@@ -1717,7 +1531,6 @@ loop(2, function()
         end
     end
 
-    -- Try ReplicatedStorage.Core.RemoteRequest
     local core = RS:FindFirstChild("Core")
     local rr = core and core:FindFirstChild("RemoteRequest")
     if rr then
@@ -1755,29 +1568,21 @@ lp.Idled:Connect(function()
     end
 end)
 
--- ================================================================
--- UI UPDATE LOOP
--- ================================================================
 loop(0.4, function()
     local myT = getMyTycoon()
 
-    -- Detect tycoon change (rebirth/ascend/evolve destroys old tycoon)
     local currentName = myT and myT.Name or nil
     if currentName ~= lastTycoonName then
         lastTycoonName = currentName
         clearAllCaches()
-        -- Also clear the harvest remote cache since tycoon changed
         harvestEvent = nil
     end
 
     local cash = lp:FindFirstChild("leaderstats") and lp.leaderstats:FindFirstChild("Cash") and lp.leaderstats.Cash.Value or "?"
     cashL.Text = "💰 " .. tostring(cash) .. "   •   " .. (currentName or "?")
-    stats.Text = string.format("Upgrades    %d\nBuys        %d\nDrops       %d\nHarvests    %d\nPowers      %d\nRemoteBuy   %d\nAutoEat     %d\nRaces       %d", S.cUp, S.cBuy, S.cDrop, S.cHarvest, S.cAutoPowers, S.cRemoteBuy, S.cAutoEat, S.cMini)
+    stats.Text = string.format("Upgrades    %d\nBuys        %d\nDrops       %d\nHarvests    %d\nRemoteBuy   %d\nAutoEat     %d\nRaces       %d", S.cUp, S.cBuy, S.cDrop, S.cHarvest, S.cRemoteBuy, S.cAutoEat, S.cMini)
 end)
 
--- ================================================================
--- CLEANUP — Disconnect all connections
--- ================================================================
 _G.LemonFarm = {
     Destroy = function()
         alive = false
@@ -1790,11 +1595,9 @@ _G.LemonFarm = {
         table.clear(powerCooldowns)
         table.clear(remoteBuyCache)
         table.clear(autoEatCache)
-        table.clear(powerFailStreak)
         lastTycoonName = nil
         lastPowerTycoon = nil
         harvestEvent = nil
-        powerIdx = 1
         legacyPowerIdx = 1
         if orbConn then orbConn:Disconnect() end
         if hConn then hConn:Disconnect() end
@@ -1808,4 +1611,4 @@ _G.LemonFarm = {
     end
 }
 
-print("[🍋 Lemon Hub Maximum] Loaded — The Final Form. RightShift hides, ✕ closes.")
+print("sell lemons script")
