@@ -1334,7 +1334,7 @@ local function isPurchaseReady(p)
     return true
 end
 
-loop(0.09, function()
+loop(0.1, function()
     if not S.buy then return end
     local myT = getMyTycoon()
     if not myT then return end
