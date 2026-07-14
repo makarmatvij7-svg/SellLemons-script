@@ -1290,7 +1290,7 @@ end
 
 -- Upgrade cache to prevent spam on maxed earners
 local upgradeCache = {}
-loop(0.10, function()
+loop(0.15, function()
     if not S.upgrade then return end
     local myT = getMyTycoon()
     if not myT then return end
@@ -1334,7 +1334,7 @@ local function isPurchaseReady(p)
     return true
 end
 
-loop(0.5, function()
+loop(0.09, function()
     if not S.buy then return end
     local myT = getMyTycoon()
     if not myT then return end
