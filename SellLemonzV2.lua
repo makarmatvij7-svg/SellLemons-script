@@ -1,13 +1,5 @@
 --==================================================================
 -- 🍋 LEMON HUB MAXIMUM — The Final Form
--- Every auto-farm loop, remote call, and state toggle preserved.
--- Visual layer rebuilt with particle engine, mesh gradients, spring
--- physics, ripple effects, cursor trails, and ambient lighting.
--- RightShift hides, — minimizes, ✕ closes.
--- _G.LemonFarm.Destroy() removes everything.
---
--- INTEGRATED: Cobalt-generated OrchardPlot.Harvest auto-harvest
--- for ALL tycoon orchard plots.
 --==================================================================
 if _G.LemonFarm and _G.LemonFarm.Destroy then pcall(_G.LemonFarm.Destroy) end
 
