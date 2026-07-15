@@ -1487,7 +1487,7 @@ loop(0.05, function()
     end
 end)
 
-loop(60, function()
+loop(41, function()
     if not S.rebirth then return end
     local myT = getMyTycoon()
     local r = rem(myT, "Rebirth")
@@ -1501,7 +1501,7 @@ loop(60, function()
     end
 end)
 
-loop(8, function()
+loop(7, function()
     if not S.ascend then return end
     local myT = getMyTycoon()
     local r = rem(myT, "Ascend")
@@ -1515,7 +1515,7 @@ loop(8, function()
     end
 end)
 
-loop(8, function()
+loop(7, function()
     if not S.evolve then return end
     local myT = getMyTycoon()
     local r = rem(myT, "Evolve")
