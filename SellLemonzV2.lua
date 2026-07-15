@@ -1808,4 +1808,4 @@ _G.LemonFarm = {
     end
 }
 
-print("[🍋 Lemon Hub Maximum] Loaded — The Final Form. RightShift hides, ✕ closes.")
+print("lemon hub loaded")
