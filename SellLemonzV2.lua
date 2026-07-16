@@ -25,7 +25,7 @@ local POWERS = {"UpgradeStack","BuyNext","Manage","WalkSpeed","ClickFruitValue",
 local KEY_CONFIG = {
     lootLink = "https://loot-link.com/s?90oVk0Lh",
     keys = {
-        ["gjyAZmyNUdiDCFjnzxPvdonFRLIiDrSa"] = { hours = 24 },
+        ["gjyAZmyNUdiDCFjn"] = { hours = 24 },
         ["croxLifeTimeKey"] = { hours = 9999999999999999999 },
         ["finwoLifeTimeKey"] = { hours = 9999999999999999999 }, -- lifetime
     },
