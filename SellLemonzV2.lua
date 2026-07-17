@@ -1,6 +1,5 @@
 --==================================================================
--- 🍋 LEMON HUB MAXIMUM — Key System Edition (v2.0 Optimized)
--- Micro-freeze fix: cached references, batched ops, deferred remotes
+-- 🍋 LEMON HUB MAXIMUM — Key System Edition
 --==================================================================
 -- Key System: Loot-Link integration with per-key expiration
 -- Backend: https://loot-link.com/s?90oVk0Lh
@@ -21,19 +20,6 @@ local lp = Players.LocalPlayer
 local POWERS = {"UpgradeStack","BuyNext","Manage","WalkSpeed","ClickFruitValue","AutoFruit"}
 
 -- ================================================================
--- PERFORMANCE CONFIG
--- ================================================================
-local PERF = {
-    tycoonCacheTTL = 2,
-    taggedCacheTTL = 1,
-    remoteBatchSize = 3,
-    frameBudget = 0.008,
-    maxParticles = 6,
-    uiUpdateInterval = 1.0,
-    loopYieldEvery = 5,
-}
-
--- ================================================================
 -- KEY SYSTEM CONFIGURATION
 -- ================================================================
 local KEY_CONFIG = {
@@ -41,7 +27,7 @@ local KEY_CONFIG = {
     keys = {
         ["gjyAZmyNUdiDCFjn"] = { hours = 24 },
         ["croxLifeTimeKey"] = { hours = 9999999999999999999 },
-        ["finwoLifeTimeKey"] = { hours = 9999999999999999999 },
+        ["finwoLifeTimeKey"] = { hours = 9999999999999999999 }, -- lifetime
     },
     graceMinutes = 5,
     cacheFile = "LemonHub_KeyCache.json",
@@ -572,12 +558,12 @@ local function createKeySystemUI(onAuthenticated)
         end)
     end)
 
-    -- Border glow animation - THROTTLED to 10fps
+    -- Border glow animation
     local glowTime = 0
     local glowLastUpdate = 0
     local glowConn = RunService.Heartbeat:Connect(function(dt)
         local now = tick()
-        if now - glowLastUpdate < 0.1 then return end
+        if now - glowLastUpdate < 0.033 then return end
         glowLastUpdate = now
         glowTime += dt
         glow1g.Rotation = (glowTime * 12) % 360
@@ -627,27 +613,6 @@ local S = {
 }
 
 -- ================================================================
--- CACHED REFERENCES (prevents micro-freezes from repeated lookups)
--- ================================================================
-local cache = {
-    myTycoon = nil,
-    tycoonLastUpdate = 0,
-    taggedEarners = {},
-    taggedPurchases = {},
-    taggedLastUpdate = 0,
-    remotes = {},
-    remotesLastUpdate = 0,
-    harvestRemote = nil,
-    cashDropNew = nil,
-    cashDropRedeem = nil,
-    minigameStart = nil,
-    minigameEnd = nil,
-    orchardPlots = {},
-    descendantsCache = {},
-    descendantsLastUpdate = 0,
-}
-
--- ================================================================
 -- MAIN UI BUILDER (called after auth)
 -- ================================================================
 local function buildMainUI()
@@ -690,6 +655,31 @@ local function buildMainUI()
 
     local parX, parY = 0, 0
     local parTX, parTY = 0, 0
+
+    local orbTime = 0
+    local orbLastUpdate = 0
+    local orbConn = RunService.Heartbeat:Connect(function(dt)
+        local now = tick()
+        if now - orbLastUpdate < 0.033 then return end
+        orbLastUpdate = now
+        orbTime += dt
+
+        parX += (parTX - parX) * math.min(dt * 6, 1)
+        parY += (parTY - parY) * math.min(dt * 6, 1)
+
+        orb1.Position = UDim2.fromScale(
+            0.2 + math.sin(orbTime*0.3)*0.08 + parX * 0.020,
+            0.3 + math.cos(orbTime*0.2)*0.06 + parY * 0.020
+        )
+        orb2.Position = UDim2.fromScale(
+            0.7 + math.cos(orbTime*0.25)*0.06 - parX * 0.035,
+            0.6 + math.sin(orbTime*0.35)*0.08 - parY * 0.035
+        )
+        orb3.Position = UDim2.fromScale(
+            0.5 + math.sin(orbTime*0.4)*0.05 + parX * 0.012,
+            0.2 + math.cos(orbTime*0.3)*0.07 - parY * 0.012
+        )
+    end)
 
     -- Main panel
     local main = Instance.new("Frame")
@@ -814,6 +804,20 @@ local function buildMainUI()
     }, 135)
     hg3.Transparency = NumberSequence.new(0.85, 0.98)
 
+    local hTime = 0
+    local hLastUpdate = 0
+    local hConn = RunService.Heartbeat:Connect(function(dt)
+        local now = tick()
+        if now - hLastUpdate < 0.033 then return end
+        hLastUpdate = now
+        hTime += dt
+        hg1.Rotation = (hTime * 8) % 360 + parX * 6
+        hg2.Rotation = (hTime * 15 + 45) % 360 - parY * 8
+        hg3.Rotation = (hTime * 5 + 135) % 360 + parX * 4
+        hg1.Offset = Vector2.new(parX * 0.03, parY * 0.02)
+        hg2.Offset = Vector2.new(-parX * 0.02, -parY * 0.03)
+    end)
+
     -- Logo orb with pulse
     local logoOrb = Instance.new("Frame")
     logoOrb.Size = UDim2.fromOffset(48, 48)
@@ -833,6 +837,19 @@ local function buildMainUI()
     logoPulse.ZIndex = 21
     logoPulse.Parent = logoOrb
     corner(logoPulse, 14)
+
+    local pulseTime = 0
+    local pulseLastUpdate = 0
+    local pulseConn = RunService.Heartbeat:Connect(function(dt)
+        local now = tick()
+        if now - pulseLastUpdate < 0.033 then return end
+        pulseLastUpdate = now
+        pulseTime += dt
+        local s = 1 + math.sin(pulseTime * 3) * 0.15
+        logoPulse.Size = UDim2.fromScale(s, s)
+        logoPulse.Position = UDim2.fromScale(0.5 - s*0.5, 0.5 - s*0.5)
+        logoPulse.BackgroundTransparency = 0.6 + math.sin(pulseTime * 3) * 0.2
+    end)
 
     local logoIcon = Instance.new("TextLabel")
     logoIcon.Size = UDim2.fromScale(1, 1)
@@ -870,7 +887,7 @@ local function buildMainUI()
     cashL.ZIndex = 22
     cashL.Parent = header
 
-    -- Key expiry label
+    -- Key expiry label (NEW!)
     local keyExpiryLabel = Instance.new("TextLabel")
     keyExpiryLabel.Size = UDim2.fromOffset(200, 14)
     keyExpiryLabel.Position = UDim2.new(1, -210, 0, 40)
@@ -965,6 +982,44 @@ local function buildMainUI()
     scrollTrack.ZIndex = 15
     scrollTrack.Parent = content
     corner(scrollTrack, 3)
+
+    -- ================================================================
+    -- CURSOR GLOW TRAIL
+    -- ================================================================
+    local cursorGlow = Instance.new("Frame")
+    cursorGlow.Size = UDim2.fromOffset(20, 20)
+    cursorGlow.BackgroundColor3 = PAL.accent
+    cursorGlow.BackgroundTransparency = 0.85
+    cursorGlow.BorderSizePixel = 0
+    cursorGlow.ZIndex = 50
+    cursorGlow.Parent = main
+    corner(cursorGlow, 10)
+    shadow(cursorGlow, 0, 12, 0.7, PAL.accent)
+
+    local cursorLastUpdate = 0
+    local cursorConn = RunService.Heartbeat:Connect(function()
+        local now = tick()
+        if now - cursorLastUpdate < 0.033 then return end
+        cursorLastUpdate = now
+
+        local mouse = lp:GetMouse()
+        if not mouse then return end
+        local absPos = main.AbsolutePosition
+        local absSize = main.AbsoluteSize
+        local relX = mouse.X - absPos.X
+        local relY = mouse.Y - absPos.Y
+        if relX >= 0 and relX <= absSize.X and relY >= 0 and relY <= absSize.Y then
+            cursorGlow.Visible = true
+            cursorGlow.Position = UDim2.fromOffset(relX - 10, relY - 10)
+            if absSize.X > 0 and absSize.Y > 0 then
+                parTX = ((relX / absSize.X) - 0.5) * 2
+                parTY = ((relY / absSize.Y) - 0.5) * 2
+            end
+        else
+            cursorGlow.Visible = false
+            parTX, parTY = 0, 0
+        end
+    end)
 
     -- ================================================================
     -- TABS SYSTEM
@@ -1317,6 +1372,17 @@ local function buildMainUI()
         grad.Parent = f
         local g = gradient(grad, ColorSequence.new(PAL.accent, PAL.accent2), 0)
         g.Transparency = NumberSequence.new(0.6, 0.9)
+
+        local divTime = 0
+        local divConn
+        divConn = RunService.Heartbeat:Connect(function(dt)
+            divTime += dt
+            g.Offset = Vector2.new(math.sin(divTime * 2) * 0.3, 0)
+        end)
+
+        f.Destroying:Connect(function()
+            if divConn then divConn:Disconnect() end
+        end)
     end
 
     local function sectionInfo(page, text)
@@ -1415,108 +1481,127 @@ local function buildMainUI()
     selectTab("Farm")
 
     -- ================================================================
-    -- UNIFIED ANIMATION LOOP (single Heartbeat, throttled to 10fps)
+    -- PARTICLE ENGINE
     -- ================================================================
-    local animTime = 0
-    local animLastUpdate = 0
-    local animConn = RunService.Heartbeat:Connect(function(dt)
-        local now = tick()
-        if now - animLastUpdate < 0.1 then return end
-        animLastUpdate = now
-        animTime += dt
+    local particlePool = {}
+    local activeParticles = {}
+    local particleTypes = {"🍋", "✦", "•", "◆", "◇", "✧"}
 
-        -- Orb positions (throttled to 10fps)
-        if not S.perfmode then
-            orb1.Position = UDim2.fromScale(
-                0.2 + math.sin(animTime*0.3)*0.08 + parX * 0.020,
-                0.3 + math.cos(animTime*0.2)*0.06 + parY * 0.020
-            )
-            orb2.Position = UDim2.fromScale(
-                0.7 + math.cos(animTime*0.25)*0.06 - parX * 0.035,
-                0.6 + math.sin(animTime*0.35)*0.08 - parY * 0.035
-            )
-            orb3.Position = UDim2.fromScale(
-                0.5 + math.sin(animTime*0.4)*0.05 + parX * 0.012,
-                0.2 + math.cos(animTime*0.3)*0.07 - parY * 0.012
-            )
-        end
-
-        -- Header gradients
-        hg1.Rotation = (animTime * 8) % 360 + parX * 6
-        hg2.Rotation = (animTime * 15 + 45) % 360 - parY * 8
-        hg3.Rotation = (animTime * 5 + 135) % 360 + parX * 4
-        hg1.Offset = Vector2.new(parX * 0.03, parY * 0.02)
-        hg2.Offset = Vector2.new(-parX * 0.02, -parY * 0.03)
-
-        -- Logo pulse
-        local s = 1 + math.sin(animTime * 3) * 0.15
-        logoPulse.Size = UDim2.fromScale(s, s)
-        logoPulse.Position = UDim2.fromScale(0.5 - s*0.5, 0.5 - s*0.5)
-        logoPulse.BackgroundTransparency = 0.6 + math.sin(animTime * 3) * 0.2
-
-        -- Border glow
-        glow1g.Rotation = (animTime * 12) % 360
-        glow2g.Rotation = (animTime * 18 + 90) % 360
-        glow1.Transparency = 0.8 + math.sin(animTime * 3) * 0.1
-        glow2.Transparency = 0.85 + math.cos(animTime * 2.5) * 0.1
-    end)
-
-    -- ================================================================
-    -- CURSOR GLOW (throttled via RenderStepped, no per-frame math)
-    -- ================================================================
-    local cursorGlow = Instance.new("Frame")
-    cursorGlow.Size = UDim2.fromOffset(20, 20)
-    cursorGlow.BackgroundColor3 = PAL.accent
-    cursorGlow.BackgroundTransparency = 0.85
-    cursorGlow.BorderSizePixel = 0
-    cursorGlow.ZIndex = 50
-    cursorGlow.Parent = main
-    corner(cursorGlow, 10)
-    shadow(cursorGlow, 0, 12, 0.7, PAL.accent)
-    cursorGlow.Visible = false
-
-    local cursorLastUpdate = 0
-    local cursorConn = RunService.Heartbeat:Connect(function()
-        local now = tick()
-        if now - cursorLastUpdate < 0.05 then return end
-        cursorLastUpdate = now
-
-        local mouse = lp:GetMouse()
-        if not mouse then return end
-        local absPos = main.AbsolutePosition
-        local absSize = main.AbsoluteSize
-        local relX = mouse.X - absPos.X
-        local relY = mouse.Y - absPos.Y
-        if relX >= 0 and relX <= absSize.X and relY >= 0 and relY <= absSize.Y then
-            cursorGlow.Visible = true
-            cursorGlow.Position = UDim2.fromOffset(relX - 10, relY - 10)
-            if absSize.X > 0 and absSize.Y > 0 then
-                parTX = ((relX / absSize.X) - 0.5) * 2
-                parTY = ((relY / absSize.Y) - 0.5) * 2
-            end
+    local function spawnParticle()
+        if #activeParticles > 12 then return end
+        local p
+        if #particlePool > 0 then
+            p = table.remove(particlePool)
+            p.Visible = true
         else
-            cursorGlow.Visible = false
-            parTX, parTY = 0, 0
+            p = Instance.new("TextLabel")
+            p.Size = UDim2.fromOffset(14, 14)
+            p.BackgroundTransparency = 1
+            p.Font = Enum.Font.GothamBold
+            p.TextSize = 12
+            p.ZIndex = 3
+            p.Parent = particleCanvas
+        end
+
+        p.TextColor3 = math.random() > 0.5 and PAL.accent or (math.random() > 0.5 and PAL.accent2 or PAL.accent3)
+        p.Text = particleTypes[math.random(1, #particleTypes)]
+
+        local startX = math.random(10, 540)
+        local startY = 400 + math.random(0, 50)
+        p.Position = UDim2.fromOffset(startX, startY)
+        p.Rotation = math.random(0, 360)
+
+        local speed = 15 + math.random() * 25
+        local amp = 15 + math.random() * 40
+        local freq = 1 + math.random() * 2
+        local rotSpeed = (math.random() - 0.5) * 120
+        local scalePulse = 0.5 + math.random() * 0.5
+        local life = 0
+        local maxLife = 4 + math.random() * 6
+
+        table.insert(activeParticles, {obj = p, startX = startX, startY = startY, speed = speed, amp = amp, freq = freq, rotSpeed = rotSpeed, scalePulse = scalePulse, life = 0, maxLife = maxLife})
+    end
+
+    local particleLastUpdate = 0
+    local particleConn = RunService.Heartbeat:Connect(function(dt)
+        local now = tick()
+        if now - particleLastUpdate < 0.033 then return end
+        particleLastUpdate = now
+        for i = #activeParticles, 1, -1 do
+            local part = activeParticles[i]
+            part.life += dt
+            if part.life >= part.maxLife then
+                part.obj.Visible = false
+                table.insert(particlePool, part.obj)
+                table.remove(activeParticles, i)
+            else
+                local y = part.startY - part.life * part.speed
+                local x = part.startX + math.sin(part.life * part.freq) * part.amp
+                local s = 1 + math.sin(part.life * part.scalePulse * 5) * 0.3
+                part.obj.Position = UDim2.fromOffset(x, y)
+                part.obj.Rotation = part.obj.Rotation + part.rotSpeed * dt
+                part.obj.TextTransparency = 0.5 + (part.life / part.maxLife) * 0.5
+                part.obj.Size = UDim2.fromOffset(14 * s, 14 * s)
+            end
         end
     end)
 
-    -- ================================================================
-    -- PERFORMANCE MODE
-    -- ================================================================
+    local particleSpawner = task.spawn(function()
+        while true do
+            task.wait(1.5 + math.random() * 2)
+            if gui and gui.Parent then
+                if not S.perfmode then
+                    pcall(spawnParticle)
+                end
+            else
+                break
+            end
+        end
+    end)
+
+    -- Performance mode
     local perfConn = nil
     local function updatePerfMode()
         if S.perfmode then
             ambient.Visible = false
             particleCanvas.Visible = false
             cursorGlow.Visible = false
+            if not perfConn then
+                perfConn = RunService.Heartbeat:Connect(function()
+                    if not S.perfmode then return end
+                    orb1.Position = UDim2.fromScale(0.2, 0.3)
+                    orb2.Position = UDim2.fromScale(0.7, 0.6)
+                    orb3.Position = UDim2.fromScale(0.5, 0.2)
+                end)
+            end
         else
             ambient.Visible = true
             particleCanvas.Visible = true
+            if perfConn then
+                perfConn:Disconnect()
+                perfConn = nil
+            end
         end
     end
 
     local perfCheckConn = RunService.Heartbeat:Connect(function()
         updatePerfMode()
+    end)
+
+    -- ================================================================
+    -- BORDER GLOW ANIMATION
+    -- ================================================================
+    local glowTime = 0
+    local glowLastUpdate = 0
+    local glowConn = RunService.Heartbeat:Connect(function(dt)
+        local now = tick()
+        if now - glowLastUpdate < 0.033 then return end
+        glowLastUpdate = now
+        glowTime += dt
+        glow1g.Rotation = (glowTime * 12) % 360
+        glow2g.Rotation = (glowTime * 18 + 90) % 360
+        glow1.Transparency = 0.8 + math.sin(glowTime * 3) * 0.1
+        glow2.Transparency = 0.85 + math.cos(glowTime * 2.5) * 0.1
     end)
 
     -- ================================================================
@@ -1612,100 +1697,19 @@ local function buildMainUI()
     end)
 
     -- ================================================================
-    -- CACHED GAME REFERENCES (prevents micro-freezes)
+    -- FUNCTIONAL LOOPS (PRESERVED EXACTLY + HARVEST)
     -- ================================================================
+    local alive = true
     local function getMyTycoon()
-        local now = tick()
-        if cache.myTycoon and cache.myTycoon.Parent and (now - cache.tycoonLastUpdate) < PERF.tycoonCacheTTL then
-            return cache.myTycoon
-        end
-        cache.tycoonLastUpdate = now
         for _, f in ipairs(workspace:GetChildren()) do
             if f:IsA("Folder") and f.Name:match("^Tycoon%d+$") then
                 local o = f:FindFirstChild("Owner")
-                if o and o:IsA("ObjectValue") and o.Value == lp then
-                    cache.myTycoon = f
-                    return f
-                end
+                if o and o:IsA("ObjectValue") and o.Value == lp then return f end
             end
         end
-        cache.myTycoon = nil
-        return nil
     end
 
-    local function getTaggedEarners()
-        local now = tick()
-        if (now - cache.taggedLastUpdate) < PERF.taggedCacheTTL then
-            return cache.taggedEarners
-        end
-        cache.taggedLastUpdate = now
-        cache.taggedEarners = CollectionService:GetTagged("Tycoon.Earner")
-        return cache.taggedEarners
-    end
-
-    local function getTaggedPurchases()
-        local now = tick()
-        if (now - cache.taggedLastUpdate) < PERF.taggedCacheTTL then
-            return cache.taggedPurchases
-        end
-        cache.taggedLastUpdate = now
-        cache.taggedPurchases = CollectionService:GetTagged("Tycoon.Purchase")
-        return cache.taggedPurchases
-    end
-
-    local function getCachedRemote(myT, name)
-        if not myT then return nil end
-        local now = tick()
-        local key = tostring(myT) .. "_" .. name
-        if cache.remotes[key] and cache.remotes[key].Parent and (now - cache.remotesLastUpdate) < 5 then
-            return cache.remotes[key]
-        end
-        cache.remotesLastUpdate = now
-        local remotes = myT:FindFirstChild("Remotes")
-        if remotes then
-            local r = remotes:FindFirstChild(name)
-            cache.remotes[key] = r
-            return r
-        end
-        return nil
-    end
-
-    local function getHarvestRemote()
-        if cache.harvestRemote and cache.harvestRemote.Parent then
-            return cache.harvestRemote
-        end
-        local core = RS:FindFirstChild("Core")
-        if not core then return nil end
-        local rr = core:FindFirstChild("RemoteRequest")
-        if not rr then return nil end
-        cache.harvestRemote = rr:FindFirstChild("OrchardPlot.Harvest")
-        return cache.harvestRemote
-    end
-
-    local function getCashDropRemotes()
-        if cache.cashDropNew and cache.cashDropNew.Parent then
-            return cache.cashDropNew, cache.cashDropRedeem
-        end
-        local sig = RS.Core:FindFirstChild("RemoteSignal")
-        local req = RS.Core:FindFirstChild("RemoteRequest")
-        if sig and req then
-            cache.cashDropNew = sig:FindFirstChild("CashDropService.New")
-            cache.cashDropRedeem = req:FindFirstChild("CashDropService.Redeem")
-        end
-        return cache.cashDropNew, cache.cashDropRedeem
-    end
-
-    local function getMinigameRemotes()
-        if cache.minigameStart and cache.minigameStart.Parent then
-            return cache.minigameStart, cache.minigameEnd
-        end
-        local req = RS.Core:FindFirstChild("RemoteRequest")
-        if req then
-            cache.minigameStart = req:FindFirstChild("MinigameRaceService.Start")
-            cache.minigameEnd = req:FindFirstChild("MinigameRaceService.End")
-        end
-        return cache.minigameStart, cache.minigameEnd
-    end
+    local lastTycoonName = nil
 
     local function clearAllCaches()
         table.clear(purchasedCache)
@@ -1715,21 +1719,14 @@ local function buildMainUI()
         table.clear(remoteBuyCache)
         table.clear(autoEatCache)
         table.clear(powerFailStreak)
-        cache.myTycoon = nil
-        cache.taggedEarners = {}
-        cache.taggedPurchases = {}
-        cache.remotes = {}
-        cache.harvestRemote = nil
-        cache.orchardPlots = {}
-        cache.descendantsCache = {}
         powerIdx = 1
         legacyPowerIdx = 1
     end
 
-    local lastTycoonName = nil
-
     local function rem(myT, name)
-        return getCachedRemote(myT, name)
+        if myT and myT:FindFirstChild("Remotes") then
+            return myT.Remotes:FindFirstChild(name)
+        end
     end
 
     local function loop(iv, fn)
@@ -1741,16 +1738,12 @@ local function buildMainUI()
         end)
     end
 
-    -- ================================================================
-    -- FUNCTIONAL LOOPS (OPTIMIZED - no micro-freezes)
-    -- ================================================================
     local upgradeCache = {}
     loop(0.15, function()
         if not S.upgrade then return end
         local myT = getMyTycoon()
         if not myT then return end
-        local earners = getTaggedEarners()
-        for _, e in ipairs(earners) do
+        for _, e in ipairs(CollectionService:GetTagged("Tycoon.Earner")) do
             if not S.upgrade then break end
             if not e:IsDescendantOf(myT) then continue end
 
@@ -1771,7 +1764,6 @@ local function buildMainUI()
                 else
                     break
                 end
-                task.wait(0.01)
             end
             if not anySuccess then
                 upgradeCache[uid] = tick()
@@ -1792,8 +1784,7 @@ local function buildMainUI()
         if not S.buy then return end
         local myT = getMyTycoon()
         if not myT then return end
-        local purchases = getTaggedPurchases()
-        for _, p in ipairs(purchases) do
+        for _, p in ipairs(CollectionService:GetTagged("Tycoon.Purchase")) do
             if not S.buy then break end
             if not p:IsDescendantOf(myT) then continue end
             if not isPurchaseReady(p) then continue end
@@ -1815,7 +1806,8 @@ local function buildMainUI()
     end)
 
     task.spawn(function()
-        local nv, rd = getCashDropRemotes()
+        local nv = RS.Core.RemoteSignal:FindFirstChild("CashDropService.New")
+        local rd = RS.Core.RemoteRequest:FindFirstChild("CashDropService.Redeem")
         if nv and rd then
             nv.OnClientEvent:Connect(function(id)
                 if S.drops and id ~= nil then
@@ -1833,32 +1825,24 @@ local function buildMainUI()
         if not (S.click and fireclickdetector) then return end
         local myT = getMyTycoon()
         if not myT then return end
-        local now = tick()
-        if (now - cache.descendantsLastUpdate) < 1 then
-            for _, d in ipairs(cache.descendantsCache) do
-                if not S.click then break end
-                if d and d.Parent and d:IsA("ClickDetector") then
-                    pcall(fireclickdetector, d)
-                end
-            end
-            return
-        end
-        cache.descendantsLastUpdate = now
-        cache.descendantsCache = {}
         for _, d in ipairs(myT:GetDescendants()) do
-            if d:IsA("ClickDetector") then
-                table.insert(cache.descendantsCache, d)
-            end
-        end
-        for _, d in ipairs(cache.descendantsCache) do
             if not S.click then break end
-            if d and d.Parent then
-                pcall(fireclickdetector, d)
-            end
+            if d:IsA("ClickDetector") then pcall(fireclickdetector, d) end
         end
     end)
 
-    -- Auto Harvest (optimized with caching)
+    -- Auto Harvest
+    local harvestEvent = nil
+    local function getHarvestRemote()
+        if harvestEvent then return harvestEvent end
+        local core = RS:FindFirstChild("Core")
+        if not core then return nil end
+        local rr = core:FindFirstChild("RemoteRequest")
+        if not rr then return nil end
+        harvestEvent = rr:FindFirstChild("OrchardPlot.Harvest")
+        return harvestEvent
+    end
+
     local harvestCache = {}
     loop(0.5, function()
         if not S.harvest then return end
@@ -1890,11 +1874,10 @@ local function buildMainUI()
             else
                 harvestCache[uid] = tick()
             end
-            task.wait(0.02)
         end
     end)
 
-    -- Auto Upgrade Powers (optimized with caching)
+    -- Auto Upgrade Powers
     local POWER_NAMES = {"UpgradeStack", "BuyNext", "Manage", "WalkSpeed", "ClickFruitValue", "AutoFruit"}
     local powerFailStreak = {}
     local powerIdx = 1
@@ -1909,7 +1892,7 @@ local function buildMainUI()
         if not r then return end
 
         local batchCount = 0
-        while S.autopowers and batchCount < PERF.remoteBatchSize do
+        while S.autopowers and batchCount < 5 do
             local name = POWER_NAMES[powerIdx]
             if not name then powerIdx = 1 break end
 
@@ -1932,7 +1915,6 @@ local function buildMainUI()
                 powerIdx = (powerIdx % #POWER_NAMES) + 1
                 batchCount += 1
             end
-            task.wait(0.01)
         end
     end)
 
@@ -1945,6 +1927,7 @@ local function buildMainUI()
             if ok then
                 clearAllCaches()
                 lastTycoonName = nil
+                harvestEvent = nil
             end
         end
     end)
@@ -1958,6 +1941,7 @@ local function buildMainUI()
             if ok then
                 clearAllCaches()
                 lastTycoonName = nil
+                harvestEvent = nil
             end
         end
     end)
@@ -2015,8 +1999,7 @@ local function buildMainUI()
         local myT = getMyTycoon()
         local r = rem(myT, "WakeIncomeStream")
         if not r then return end
-        local earners = getTaggedEarners()
-        for _, e in ipairs(earners) do
+        for _, e in ipairs(CollectionService:GetTagged("Tycoon.Earner")) do
             if not S.wake then break end
             if e:IsDescendantOf(myT) then
                 pcall(function() r:InvokeServer(e.Name) end)
@@ -2042,14 +2025,14 @@ local function buildMainUI()
 
     loop(20, function()
         if not S.offline then return end
-        local myT = getMyTycoon()
-        local r = rem(myT, "DoubleOfflineCash")
+        local r = rem(getMyTycoon(), "DoubleOfflineCash")
         if r then pcall(function() r:InvokeServer() end) end
     end)
 
     loop(5, function()
         if not S.mini then return end
-        local sr, er = getMinigameRemotes()
+        local sr = RS.Core.RemoteRequest:FindFirstChild("MinigameRaceService.Start")
+        local er = RS.Core.RemoteRequest:FindFirstChild("MinigameRaceService.End")
         if not (sr and er) then return end
         local ok, res = pcall(function() return sr:InvokeServer() end)
         if ok and res then
@@ -2059,7 +2042,7 @@ local function buildMainUI()
         end
     end)
 
-    -- Remote Buy (optimized)
+    -- Remote Buy
     local remoteBuyNames = {"BuyNext", "RemoteBuy", "PurchaseNext", "RemotePurchase", "BuyRemote"}
     local remoteBuyCache = {}
     loop(1, function()
@@ -2087,7 +2070,7 @@ local function buildMainUI()
         end
     end)
 
-    -- Auto Eater (optimized with caching)
+    -- Auto Eater
     local autoEatNames = {"EatFruit", "AutoEat", "ConsumeFruit", "EatOrchardFruit"}
     local autoEatCache = {}
     loop(2, function()
@@ -2191,33 +2174,23 @@ local function buildMainUI()
     end)
 
     -- ================================================================
-    -- UI UPDATE LOOP (throttled to 1s, prevents micro-freezes)
+    -- UI UPDATE LOOP
     -- ================================================================
-    local uiLastUpdate = 0
     loop(0.4, function()
-        local now = tick()
-        if now - uiLastUpdate < PERF.uiUpdateInterval then return end
-        uiLastUpdate = now
-
         local myT = getMyTycoon()
 
         local currentName = myT and myT.Name or nil
         if currentName ~= lastTycoonName then
             lastTycoonName = currentName
             clearAllCaches()
+            harvestEvent = nil
         end
 
         local cash = lp:FindFirstChild("leaderstats") and lp.leaderstats:FindFirstChild("Cash") and lp.leaderstats.Cash.Value or "?"
         cashL.Text = "💰 " .. tostring(cash) .. "   •   " .. (currentName or "?")
-        stats.Text = string.format("Upgrades    %d
-Buys        %d
-Drops       %d
-Harvests    %d
-Powers      %d
-RemoteBuy   %d
-AutoEat     %d
-Races       %d", S.cUp, S.cBuy, S.cDrop, S.cHarvest, S.cAutoPowers, S.cRemoteBuy, S.cAutoEat, S.cMini)
+        stats.Text = string.format("Upgrades    %d\nBuys        %d\nDrops       %d\nHarvests    %d\nPowers      %d\nRemoteBuy   %d\nAutoEat     %d\nRaces       %d", S.cUp, S.cBuy, S.cDrop, S.cHarvest, S.cAutoPowers, S.cRemoteBuy, S.cAutoEat, S.cMini)
 
+        -- Update key expiry label
         if keyState.authenticated and keyState.expiresAt then
             keyExpiryLabel.Text = "⏳ " .. getTimeRemaining()
         else
@@ -2243,16 +2216,14 @@ Races       %d", S.cUp, S.cBuy, S.cDrop, S.cHarvest, S.cAutoPowers, S.cRemoteBuy
             table.clear(powerFailStreak)
             lastTycoonName = nil
             lastPowerTycoon = nil
-            cache.myTycoon = nil
-            cache.taggedEarners = {}
-            cache.taggedPurchases = {}
-            cache.remotes = {}
-            cache.harvestRemote = nil
-            cache.orchardPlots = {}
-            cache.descendantsCache = {}
+            harvestEvent = nil
             powerIdx = 1
             legacyPowerIdx = 1
-            if animConn then animConn:Disconnect() end
+            if orbConn then orbConn:Disconnect() end
+            if hConn then hConn:Disconnect() end
+            if pulseConn then pulseConn:Disconnect() end
+            if glowConn then glowConn:Disconnect() end
+            if particleConn then particleConn:Disconnect() end
             if cursorConn then cursorConn:Disconnect() end
             if perfConn then perfConn:Disconnect() end
             if perfCheckConn then perfCheckConn:Disconnect() end
@@ -2260,7 +2231,7 @@ Races       %d", S.cUp, S.cBuy, S.cDrop, S.cHarvest, S.cAutoPowers, S.cRemoteBuy
         end
     }
 
-    print("lemon hub v2.0 loaded (micro-freeze optimized)")
+    print("lemon hub loaded")
 end
 
 
@@ -2269,8 +2240,10 @@ end
 -- ================================================================
 -- Try to load cached key first
 if loadKeyCache() then
+    -- Already authenticated, build main UI directly
     buildMainUI()
 else
+    -- Show key system UI
     createKeySystemUI(function()
         buildMainUI()
     end)
